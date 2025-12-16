@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { JobAssignmentDialog } from "@/components/modals/JobAssignmentDialog";
+import { EditRODialog } from "@/components/modals/EditRODialog";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -19,11 +19,11 @@ import {
 import { addDays, format, startOfWeek } from "date-fns";
 
 // Mock Appointments
-const APPOINTMENTS = [
-  { id: 1, customer: "John Smith", vehicle: "2018 Ford F-150", service: "Brake Job", time: "08:00 AM", duration: 2, tech: "Mike T.", color: "bg-blue-500/10 border-blue-200 text-blue-700" },
-  { id: 2, customer: "Sarah Connor", vehicle: "2021 Tesla Model 3", service: "Tire Rotation", time: "09:30 AM", duration: 1, tech: "Unassigned", color: "bg-orange-500/10 border-orange-200 text-orange-700" },
-  { id: 3, customer: "Bruce Wayne", vehicle: "Lamborghini Urus", service: "Engine Diagnostics", time: "11:00 AM", duration: 3, tech: "Batman", color: "bg-purple-500/10 border-purple-200 text-purple-700" },
-  { id: 4, customer: "Clark Kent", vehicle: "Honda Civic", service: "Oil Change", time: "02:00 PM", duration: 1, tech: "Superman", color: "bg-green-500/10 border-green-200 text-green-700" },
+const INITIAL_APPOINTMENTS = [
+  { id: 1, customer: "John Smith", vehicle: "2018 Ford F-150", service: "Brake Job", time: "08:00 AM", duration: 2, tech: "Mike T.", color: "bg-blue-500/10 border-blue-200 text-blue-700", status: "wip" },
+  { id: 2, customer: "Sarah Connor", vehicle: "2021 Tesla Model 3", service: "Tire Rotation", time: "09:30 AM", duration: 1, tech: "Unassigned", color: "bg-orange-500/10 border-orange-200 text-orange-700", status: "pending" },
+  { id: 3, customer: "Bruce Wayne", vehicle: "Lamborghini Urus", service: "Engine Diagnostics", time: "11:00 AM", duration: 3, tech: "Batman", color: "bg-purple-500/10 border-purple-200 text-purple-700", status: "estimate" },
+  { id: 4, customer: "Clark Kent", vehicle: "Honda Civic", service: "Oil Change", time: "02:00 PM", duration: 1, tech: "Superman", color: "bg-green-500/10 border-green-200 text-green-700", status: "completed" },
 ];
 
 const BAYS = ["Bay 1", "Bay 2", "Bay 3", "Bay 4", "Alignment Rack", "Quick Lube"];
@@ -32,22 +32,50 @@ const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "1
 
 export default function Schedule() {
   const today = new Date();
-  const [assignmentOpen, setAssignmentOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<{id: string, title: string, tech: string} | null>(null);
+  const [appointments, setAppointments] = useState(INITIAL_APPOINTMENTS);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedRO, setSelectedRO] = useState<any>(null);
 
-  const handleJobClick = (id: string, title: string, tech: string) => {
-    setSelectedJob({ id, title, tech });
-    setAssignmentOpen(true);
+  const handleJobClick = (app: any) => {
+    // Map appointment data to RO format for the dialog
+    setSelectedRO({
+      id: `APP-${app.id}`,
+      customer: app.customer,
+      vehicle: app.vehicle,
+      status: app.status,
+      tech: app.tech,
+      service: app.service,
+      due: app.time,
+      bay: BAYS[app.id % BAYS.length] // Mock bay assignment
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveRO = (updatedRO: any) => {
+    // Map back to appointment format
+    const updatedApps = appointments.map(app => 
+      `APP-${app.id}` === updatedRO.id 
+        ? {
+            ...app,
+            customer: updatedRO.customer,
+            vehicle: updatedRO.vehicle,
+            status: updatedRO.status,
+            tech: updatedRO.tech,
+            service: updatedRO.service,
+            time: updatedRO.due
+          }
+        : app
+    );
+    setAppointments(updatedApps);
   };
 
   return (
     <Layout>
-      <JobAssignmentDialog 
-        open={assignmentOpen} 
-        onOpenChange={setAssignmentOpen}
-        jobTitle={selectedJob?.title}
-        jobId={selectedJob?.id}
-        currentTech={selectedJob?.tech}
+      <EditRODialog 
+        open={editOpen} 
+        onOpenChange={setEditOpen}
+        roData={selectedRO}
+        onSave={handleSaveRO}
       />
 
       <div className="flex flex-col h-[calc(100vh-8rem)] gap-6">
@@ -105,7 +133,7 @@ export default function Schedule() {
                 {BAYS.map((bay, index) => {
                   // Mock putting appointments in random slots for visual demo
                   // In a real app, this would be calculated based on start time and bay assignment
-                  const appointment = APPOINTMENTS.find(app => {
+                  const appointment = appointments.find(app => {
                     const appHour = parseInt(app.time.split(':')[0]);
                     const isPM = app.time.includes('PM') && appHour !== 12;
                     const hour24 = isPM ? appHour + 12 : appHour;
@@ -118,7 +146,7 @@ export default function Schedule() {
                       {appointment && (
                         <div 
                           className={`absolute top-1 left-1 right-1 bottom-1 rounded-md p-2 border ${appointment.color} shadow-sm hover:shadow-md transition-all cursor-pointer z-10 flex flex-col justify-between`}
-                          onClick={() => handleJobClick(`${appointment.id}`, appointment.vehicle, appointment.tech)}
+                          onClick={() => handleJobClick(appointment)}
                         >
                           <div>
                             <div className="flex justify-between items-start">

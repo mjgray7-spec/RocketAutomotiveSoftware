@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MOCK_METRICS, WORKFLOW_STAGES } from "@/lib/constants";
-import { JobAssignmentDialog } from "@/components/modals/JobAssignmentDialog";
+import { EditRODialog } from "@/components/modals/EditRODialog";
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -13,7 +13,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   MoreHorizontal,
-  Bot
+  Bot,
+  User
 } from "lucide-react";
 import { 
   BarChart, 
@@ -46,22 +47,36 @@ const revenueData = [
 ];
 const COLORS = ['#FF0000', '#333333', '#666666', '#999999'];
 
-export default function Dashboard() {
-  const [assignmentOpen, setAssignmentOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<{id: string, title: string} | null>(null);
+// Mock RO Data for Dashboard List
+const INITIAL_RECENT_ROS = [
+  { id: "1024", customer: "John Smith", vehicle: "2018 Ford F-150", status: "wip", tech: "Mike T.", service: "Brake Job + Oil Change", due: "Today, 4:00 PM" },
+  { id: "1025", customer: "Sarah Connor", vehicle: "2021 Tesla Model 3", status: "pending", tech: "Unassigned", service: "Tire Rotation", due: "Tomorrow, 10:00 AM" },
+  { id: "1026", customer: "Bruce Wayne", vehicle: "2019 Lamborghini Urus", status: "estimate", tech: "Batman", service: "Engine Diagnostics", due: "Today, 5:00 PM" },
+  { id: "1027", customer: "Clark Kent", vehicle: "2015 Honda Civic", status: "approval", tech: "Superman", service: "Transmission Fluid", due: "Yesterday", urgent: true },
+  { id: "1028", customer: "Diana Prince", vehicle: "2020 Jeep Wrangler", status: "completed", tech: "Wonder Woman", service: "Alignment", due: "Done" },
+];
 
-  const handleJobClick = (id: string, title: string) => {
-    setSelectedJob({ id, title });
-    setAssignmentOpen(true);
+export default function Dashboard() {
+  const [recentROs, setRecentROs] = useState(INITIAL_RECENT_ROS);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedRO, setSelectedRO] = useState<any>(null);
+
+  const handleJobClick = (ro: any) => {
+    setSelectedRO(ro);
+    setEditOpen(true);
+  };
+
+  const handleSaveRO = (updatedRO: any) => {
+    setRecentROs(recentROs.map(ro => ro.id === updatedRO.id ? updatedRO : ro));
   };
 
   return (
     <Layout>
-      <JobAssignmentDialog 
-        open={assignmentOpen} 
-        onOpenChange={setAssignmentOpen}
-        jobTitle={selectedJob?.title}
-        jobId={selectedJob?.id}
+      <EditRODialog 
+        open={editOpen} 
+        onOpenChange={setEditOpen}
+        roData={selectedRO}
+        onSave={handleSaveRO}
       />
       
       <div className="flex flex-col gap-6">
@@ -144,24 +159,35 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
-                  {[1, 2, 3, 4, 5].map((item) => (
+                  {recentROs.map((ro) => (
                     <div 
-                      key={item} 
+                      key={ro.id} 
                       className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => handleJobClick(`${1023 + item}`, "2018 Ford F-150")}
+                      onClick={() => handleJobClick(ro)}
                     >
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center font-bold text-muted-foreground">
-                          #{1023 + item}
+                          #{ro.id}
                         </div>
                         <div>
-                          <p className="font-medium">2018 Ford F-150</p>
-                          <p className="text-sm text-muted-foreground">John Doe • Brake Service</p>
+                          <p className="font-medium">{ro.vehicle}</p>
+                          <p className="text-sm text-muted-foreground">{ro.customer} • {ro.service}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                          In Progress
+                        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground mr-2">
+                           <User className="h-3 w-3" />
+                           {ro.tech}
+                        </div>
+                        <Badge variant="outline" className={
+                           ro.status === "wip" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                           ro.status === "pending" ? "bg-slate-50 text-slate-700 border-slate-200" :
+                           ro.status === "completed" ? "bg-green-50 text-green-700 border-green-200" :
+                           "bg-yellow-50 text-yellow-700 border-yellow-200"
+                        }>
+                          {ro.status === "wip" ? "Work in Progress" : 
+                           ro.status === "pending" ? "Pending" :
+                           ro.status === "completed" ? "Completed" : ro.status}
                         </Badge>
                         <Button variant="ghost" size="icon">
                           <MoreHorizontal className="h-4 w-4" />

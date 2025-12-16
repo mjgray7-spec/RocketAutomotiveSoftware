@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { JobAssignmentDialog } from "@/components/modals/JobAssignmentDialog";
+import { EditRODialog } from "@/components/modals/EditRODialog";
 import { 
   Search, 
   Filter, 
@@ -27,8 +27,8 @@ const COLUMNS = [
   { id: "completed", title: "Completed", color: "bg-green-500/10 border-green-200" },
 ];
 
-// Mock RO Data
-const RO_DATA = [
+// Initial Mock Data
+const INITIAL_RO_DATA = [
   { id: "1024", customer: "John Smith", vehicle: "2018 Ford F-150", status: "wip", tech: "Mike T.", service: "Brake Job + Oil Change", due: "Today, 4:00 PM" },
   { id: "1025", customer: "Sarah Connor", vehicle: "2021 Tesla Model 3", status: "pending", tech: "Unassigned", service: "Tire Rotation", due: "Tomorrow, 10:00 AM" },
   { id: "1026", customer: "Bruce Wayne", vehicle: "2019 Lamborghini Urus", status: "estimate", tech: "Batman", service: "Engine Diagnostics", due: "Today, 5:00 PM" },
@@ -38,22 +38,26 @@ const RO_DATA = [
 ];
 
 export default function RepairOrders() {
-  const [assignmentOpen, setAssignmentOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<{id: string, title: string, tech: string} | null>(null);
+  const [roList, setRoList] = useState(INITIAL_RO_DATA);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedRO, setSelectedRO] = useState<any>(null);
 
-  const handleJobClick = (id: string, title: string, tech: string) => {
-    setSelectedJob({ id, title, tech });
-    setAssignmentOpen(true);
+  const handleJobClick = (ro: any) => {
+    setSelectedRO(ro);
+    setEditOpen(true);
+  };
+
+  const handleSaveRO = (updatedRO: any) => {
+    setRoList(roList.map(ro => ro.id === updatedRO.id ? updatedRO : ro));
   };
 
   return (
     <Layout>
-      <JobAssignmentDialog 
-        open={assignmentOpen} 
-        onOpenChange={setAssignmentOpen}
-        jobTitle={selectedJob?.title}
-        jobId={selectedJob?.id}
-        currentTech={selectedJob?.tech}
+      <EditRODialog 
+        open={editOpen} 
+        onOpenChange={setEditOpen}
+        roData={selectedRO}
+        onSave={handleSaveRO}
       />
 
       <div className="flex flex-col h-[calc(100vh-8rem)] gap-6">
@@ -86,18 +90,18 @@ export default function RepairOrders() {
                 <div className={`p-3 border-b border-border/50 flex items-center justify-between ${col.color} bg-opacity-20 rounded-t-xl`}>
                   <h3 className="font-semibold text-sm uppercase tracking-wide">{col.title}</h3>
                   <Badge variant="secondary" className="bg-background/50 backdrop-blur">
-                    {RO_DATA.filter(ro => ro.status === col.id).length}
+                    {roList.filter(ro => ro.status === col.id).length}
                   </Badge>
                 </div>
 
                 {/* Column Content */}
                 <ScrollArea className="flex-1 p-3">
                   <div className="space-y-3">
-                    {RO_DATA.filter(ro => ro.status === col.id).map((ro) => (
+                    {roList.filter(ro => ro.status === col.id).map((ro) => (
                       <Card 
                         key={ro.id} 
                         className="hover-elevate cursor-pointer border-border/60 shadow-sm hover:shadow-md transition-all group"
-                        onClick={() => handleJobClick(ro.id, ro.vehicle, ro.tech)}
+                        onClick={() => handleJobClick(ro)}
                       >
                         <CardContent className="p-3 space-y-3">
                           <div className="flex justify-between items-start">
