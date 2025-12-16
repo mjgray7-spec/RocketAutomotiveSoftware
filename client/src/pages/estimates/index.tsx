@@ -37,18 +37,83 @@ const INITIAL_LINE_ITEMS = [
 import { findVMRS } from "@/lib/vmrs-data";
 import { getLaborTime } from "@/lib/motors-data";
 
+interface LineItem {
+  id: number;
+  type: string;
+  description: string;
+  quantity: number;
+  rate: string;
+  total: string;
+  source: string;
+}
+
+interface EstimateJob {
+  id: number;
+  title: string;
+  lineItems: LineItem[];
+}
+
+const INITIAL_JOBS: EstimateJob[] = [
+  {
+    id: 1,
+    title: "Job 1: Brake Service - Front Axle",
+    lineItems: [
+      { id: 1, type: "Labor", description: "Remove and Replace Brake Pads (Front)", quantity: 1.5, rate: "$145.00", total: "$217.50", source: "Motors" },
+      { id: 2, type: "Part", description: "Ceramic Brake Pads - Front Set", quantity: 1, rate: "$89.99", total: "$89.99", source: "Inventory" },
+      { id: 3, type: "Part", description: "Brake Rotor - Front", quantity: 2, rate: "$125.00", total: "$250.00", source: "Vendor" },
+      { id: 4, type: "Labor", description: "Brake System Bleed", quantity: 0.8, rate: "$145.00", total: "$116.00", source: "Motors" },
+      { id: 5, type: "Fee", description: "Shop Supplies & Disposal", quantity: 1, rate: "$25.00", total: "$25.00", source: "Fixed" },
+    ]
+  }
+];
+
 export default function Estimates() {
   const { repairOrders } = useData();
   const [dviOpen, setDviOpen] = useState(true);
-  const [lineItems, setLineItems] = useState(INITIAL_LINE_ITEMS);
+  const [jobs, setJobs] = useState<EstimateJob[]>(INITIAL_JOBS);
   
   // Find RO 1025 for this mockup view
   const currentRO = repairOrders.find(ro => ro.id === "1025");
   const dviItems = currentRO?.dviItems || [];
   const attentionItems = dviItems.filter(i => i.status === 'fail' || i.status === 'caution');
 
-  const handleDeleteLineItem = (id: number) => {
-    setLineItems(prev => prev.filter(item => item.id !== id));
+  const handleDeleteLineItem = (jobId: number, itemId: number) => {
+    setJobs(prev => prev.map(job => {
+      if (job.id === jobId) {
+        return { ...job, lineItems: job.lineItems.filter(item => item.id !== itemId) };
+      }
+      return job;
+    }));
+  };
+
+  const handleAddJob = () => {
+    const newJobId = Math.max(0, ...jobs.map(j => j.id)) + 1;
+    setJobs(prev => [...prev, {
+      id: newJobId,
+      title: `Job ${newJobId}: New Service`,
+      lineItems: []
+    }]);
+  };
+
+  const handleAddLineItemToJob = (jobId: number) => {
+     setJobs(prev => prev.map(job => {
+      if (job.id === jobId) {
+        const newItemId = Math.max(0, ...job.lineItems.map(i => i.id)) + 1;
+        return {
+          ...job,
+          lineItems: [...job.lineItems, {
+             id: newItemId,
+             type: "Labor",
+             description: "New Service Item",
+             quantity: 1,
+             rate: "$145.00",
+             total: "$145.00",
+             source: "Manual"
+          }]
+        };
+      }
+      return job;
+    }));
   };
 
   const handleAddToEstimate = (item: InspectionItem) => {
@@ -62,24 +127,47 @@ export default function Estimates() {
     const laborRate = 145.00;
     const totalCost = laborTime.hours * laborRate;
 
+    const description = vmrs 
+      ? `${vmrs.description} (VMRS: ${vmrs.code})`
+      : `Fix: ${item.category}`;
+      
+    const notes = item.notes ? ` - ${item.notes}` : "";
+
     const newLineItem = {
-      id: Math.max(0, ...lineItems.map(i => i.id)) + 1,
+      id: 1,
       type: "Labor",
-      description: vmrs 
-        ? `${vmrs.description} (VMRS: ${vmrs.code}) - ${item.notes || 'Inspection Finding'}`
-        : `Fix: ${item.category} (${item.notes || 'Issue found during inspection'})`,
+      description: description + notes,
       quantity: laborTime.hours,
       rate: `$${laborRate.toFixed(2)}`,
       total: `$${totalCost.toFixed(2)}`,
       source: vmrs ? "Motors" : "Manual"
     };
-    setLineItems(prev => [...prev, newLineItem]);
+
+    // Create a NEW Job for this finding
+    const newJobId = Math.max(0, ...jobs.map(j => j.id)) + 1;
+    const newJob: EstimateJob = {
+      id: newJobId,
+      title: `Job ${newJobId}: ${vmrs ? vmrs.system : item.category} Repair`,
+      lineItems: [newLineItem]
+    };
+
+    setJobs(prev => [...prev, newJob]);
   };
 
   const calculateTotal = () => {
-    const parts = lineItems.filter(i => i.type === 'Part').reduce((sum, item) => sum + parseFloat(item.total.replace('$', '')), 0);
-    const labor = lineItems.filter(i => i.type === 'Labor').reduce((sum, item) => sum + parseFloat(item.total.replace('$', '')), 0);
-    const fees = lineItems.filter(i => i.type === 'Fee').reduce((sum, item) => sum + parseFloat(item.total.replace('$', '')), 0);
+    let parts = 0;
+    let labor = 0;
+    let fees = 0;
+
+    jobs.forEach(job => {
+      job.lineItems.forEach(item => {
+        const amount = parseFloat(item.total.replace('$', '').replace(',', ''));
+        if (item.type === 'Part') parts += amount;
+        else if (item.type === 'Labor') labor += amount;
+        else if (item.type === 'Fee') fees += amount;
+      });
+    });
+
     return { parts, labor, fees, total: parts + labor + fees };
   };
 
@@ -215,58 +303,71 @@ export default function Estimates() {
                 </Collapsible>
               )}
 
-              {/* Line Items */}
-              <div className="space-y-4">
-                {/* Group Header */}
-                <div className="flex items-center gap-2 pb-2 border-b border-border">
-                  <Wrench className="h-4 w-4 text-primary" />
-                  <h3 className="font-bold text-sm uppercase tracking-wide">Job 1: Brake Service - Front Axle</h3>
-                </div>
+              {/* Jobs List */}
+              {jobs.map((job) => (
+                <div key={job.id} className="space-y-4 mb-8">
+                  {/* Job Header */}
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <Wrench className="h-4 w-4 text-primary" />
+                    <h3 className="font-bold text-sm uppercase tracking-wide">{job.title}</h3>
+                  </div>
 
-                {/* Items Table Header */}
-                 <div className="grid grid-cols-12 gap-4 px-2 py-2 text-xs font-medium text-muted-foreground bg-muted/30 rounded-md">
-                   <div className="col-span-1">Type</div>
-                   <div className="col-span-5">Description</div>
-                   <div className="col-span-1 text-center">Qty</div>
-                   <div className="col-span-2 text-right">Rate</div>
-                   <div className="col-span-2 text-right">Total</div>
-                   <div className="col-span-1"></div>
-                 </div>
+                  {/* Items Table Header */}
+                   <div className="grid grid-cols-12 gap-4 px-2 py-2 text-xs font-medium text-muted-foreground bg-muted/30 rounded-md">
+                     <div className="col-span-1">Type</div>
+                     <div className="col-span-5">Description</div>
+                     <div className="col-span-1 text-center">Qty</div>
+                     <div className="col-span-2 text-right">Rate</div>
+                     <div className="col-span-2 text-right">Total</div>
+                     <div className="col-span-1"></div>
+                   </div>
 
-                {/* Items */}
-                <div className="space-y-2">
-                  {lineItems.map((item) => (
-                    <div key={item.id} className="grid grid-cols-12 gap-4 px-2 py-3 items-center text-sm border-b border-border/30 last:border-0 hover:bg-muted/20 rounded-md transition-colors group">
-                      <div className="col-span-1">
-                        <Badge variant="outline" className="text-[10px] h-5">{item.type}</Badge>
-                      </div>
-                      <div className="col-span-5 font-medium">
-                        {item.description}
-                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                           {item.source === "Motors" && <Badge variant="secondary" className="h-4 px-1 text-[9px]">Motors Data</Badge>}
-                           {item.source === "Inventory" && <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-green-500/10 text-green-600">In Stock</Badge>}
+                  {/* Items */}
+                  <div className="space-y-2">
+                    {job.lineItems.map((item) => (
+                      <div key={item.id} className="grid grid-cols-12 gap-4 px-2 py-3 items-center text-sm border-b border-border/30 last:border-0 hover:bg-muted/20 rounded-md transition-colors group">
+                        <div className="col-span-1">
+                          <Badge variant="outline" className="text-[10px] h-5">{item.type}</Badge>
+                        </div>
+                        <div className="col-span-5 font-medium">
+                          {item.description}
+                          <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                             {item.source === "Motors" && <Badge variant="secondary" className="h-4 px-1 text-[9px]">Motors Data</Badge>}
+                             {item.source === "Inventory" && <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-green-500/10 text-green-600">In Stock</Badge>}
+                          </div>
+                        </div>
+                        <div className="col-span-1 text-center">{item.quantity}</div>
+                        <div className="col-span-2 text-right text-muted-foreground">{item.rate}</div>
+                        <div className="col-span-2 text-right font-bold">{item.total}</div>
+                        <div className="col-span-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteLineItem(job.id, item.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="col-span-1 text-center">{item.quantity}</div>
-                      <div className="col-span-2 text-right text-muted-foreground">{item.rate}</div>
-                      <div className="col-span-2 text-right font-bold">{item.total}</div>
-                      <div className="col-span-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteLineItem(item.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                {/* Add Item Button */}
-                <Button variant="ghost" className="w-full border border-dashed border-border/50 text-muted-foreground h-10 hover:bg-muted/50 mt-4">
-                  <Plus className="h-4 w-4 mr-2" /> Add Line Item
+                  {/* Add Item Button */}
+                  <Button 
+                    variant="ghost" 
+                    className="w-full border border-dashed border-border/50 text-muted-foreground h-10 hover:bg-muted/50 mt-4"
+                    onClick={() => handleAddLineItemToJob(job.id)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Add Line Item
+                  </Button>
+                </div>
+              ))}
+
+              {/* Add New Job Button */}
+              <div className="pt-4 border-t border-border/50">
+                <Button variant="outline" className="w-full h-12 border-dashed" onClick={handleAddJob}>
+                  <Plus className="h-5 w-5 mr-2" /> Add Service Job
                 </Button>
               </div>
             </div>
