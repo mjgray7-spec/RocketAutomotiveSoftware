@@ -34,6 +34,9 @@ const INITIAL_LINE_ITEMS = [
   { id: 5, type: "Fee", description: "Shop Supplies & Disposal", quantity: 1, rate: "$25.00", total: "$25.00", source: "Fixed" },
 ];
 
+import { findVMRS } from "@/lib/vmrs-data";
+import { getLaborTime } from "@/lib/motors-data";
+
 export default function Estimates() {
   const { repairOrders } = useData();
   const [dviOpen, setDviOpen] = useState(true);
@@ -49,14 +52,26 @@ export default function Estimates() {
   };
 
   const handleAddToEstimate = (item: InspectionItem) => {
+    // 1. Lookup VMRS Code
+    const vmrs = findVMRS(item.category) || findVMRS(item.notes || "");
+    
+    // 2. Lookup Labor Time
+    const laborTime = vmrs ? getLaborTime(vmrs.code) : { hours: 1.0, difficulty: "Moderate" };
+    
+    // 3. Create Line Item
+    const laborRate = 145.00;
+    const totalCost = laborTime.hours * laborRate;
+
     const newLineItem = {
       id: Math.max(0, ...lineItems.map(i => i.id)) + 1,
-      type: "Labor", // Defaulting to Labor for finding
-      description: `Fix: ${item.category} (${item.notes || 'Issue found during inspection'})`,
-      quantity: 1,
-      rate: "$145.00",
-      total: "$145.00",
-      source: "Manual"
+      type: "Labor",
+      description: vmrs 
+        ? `${vmrs.description} (VMRS: ${vmrs.code}) - ${item.notes || 'Inspection Finding'}`
+        : `Fix: ${item.category} (${item.notes || 'Issue found during inspection'})`,
+      quantity: laborTime.hours,
+      rate: `$${laborRate.toFixed(2)}`,
+      total: `$${totalCost.toFixed(2)}`,
+      source: vmrs ? "Motors" : "Manual"
     };
     setLineItems(prev => [...prev, newLineItem]);
   };
