@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { lookupLaborTime } from "./motors-api";
+import { searchVendorParts } from "./vendor-parts-api";
 import { 
   insertCustomerSchema, 
   insertVehicleSchema, 
@@ -19,6 +20,18 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // ============ VENDOR PARTS API ============
+  app.get("/api/vendor-parts/search", async (req, res) => {
+    try {
+      const searchTerm = (req.query.q as string) || "";
+      const results = await searchVendorParts(searchTerm);
+      res.json(results);
+    } catch (error) {
+      console.error("Vendor parts search error:", error);
+      res.status(500).json({ error: "Failed to search vendor parts" });
+    }
+  });
+
   // ============ MOTORS API ============
   app.get("/api/motors/labor-time", async (req, res) => {
     try {
