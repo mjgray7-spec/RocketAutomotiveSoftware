@@ -113,6 +113,13 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
     }
   };
 
+  const handleDeleteLineItem = (id: string) => {
+    if (formData && formData.lineItems) {
+      const updatedLineItems = formData.lineItems.filter(item => item.id !== id);
+      setFormData({ ...formData, lineItems: updatedLineItems });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-500/10 text-green-500 border-green-200';
@@ -296,7 +303,7 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
                                )}
                             </div>
                             
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive h-8 w-8" onClick={() => handleDeleteLineItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         ))
                       ) : (

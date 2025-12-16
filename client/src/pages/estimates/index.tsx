@@ -24,7 +24,9 @@ import { useData } from "@/lib/DataContext";
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const LINE_ITEMS = [
+import { InspectionItem } from "@/lib/DataContext";
+
+const INITIAL_LINE_ITEMS = [
   { id: 1, type: "Labor", description: "Remove and Replace Brake Pads (Front)", quantity: 1.5, rate: "$145.00", total: "$217.50", source: "Motors" },
   { id: 2, type: "Part", description: "Ceramic Brake Pads - Front Set", quantity: 1, rate: "$89.99", total: "$89.99", source: "Inventory" },
   { id: 3, type: "Part", description: "Brake Rotor - Front", quantity: 2, rate: "$125.00", total: "$250.00", source: "Vendor" },
@@ -35,11 +37,38 @@ const LINE_ITEMS = [
 export default function Estimates() {
   const { repairOrders } = useData();
   const [dviOpen, setDviOpen] = useState(true);
+  const [lineItems, setLineItems] = useState(INITIAL_LINE_ITEMS);
   
   // Find RO 1025 for this mockup view
   const currentRO = repairOrders.find(ro => ro.id === "1025");
   const dviItems = currentRO?.dviItems || [];
   const attentionItems = dviItems.filter(i => i.status === 'fail' || i.status === 'caution');
+
+  const handleDeleteLineItem = (id: number) => {
+    setLineItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleAddToEstimate = (item: InspectionItem) => {
+    const newLineItem = {
+      id: Math.max(0, ...lineItems.map(i => i.id)) + 1,
+      type: "Labor", // Defaulting to Labor for finding
+      description: `Fix: ${item.category} (${item.notes || 'Issue found during inspection'})`,
+      quantity: 1,
+      rate: "$145.00",
+      total: "$145.00",
+      source: "Manual"
+    };
+    setLineItems(prev => [...prev, newLineItem]);
+  };
+
+  const calculateTotal = () => {
+    const parts = lineItems.filter(i => i.type === 'Part').reduce((sum, item) => sum + parseFloat(item.total.replace('$', '')), 0);
+    const labor = lineItems.filter(i => i.type === 'Labor').reduce((sum, item) => sum + parseFloat(item.total.replace('$', '')), 0);
+    const fees = lineItems.filter(i => i.type === 'Fee').reduce((sum, item) => sum + parseFloat(item.total.replace('$', '')), 0);
+    return { parts, labor, fees, total: parts + labor + fees };
+  };
+
+  const totals = calculateTotal();
 
   return (
     <Layout>
@@ -151,7 +180,12 @@ export default function Estimates() {
                               </div>
                               <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
                               <div className="mt-2 flex gap-2">
-                                <Button size="sm" variant="outline" className="h-7 text-xs border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/10">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-7 text-xs border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/10"
+                                  onClick={() => handleAddToEstimate(item)}
+                                >
                                   <Plus className="h-3 w-3 mr-1" /> Add to Estimate
                                 </Button>
                               </div>
@@ -186,7 +220,7 @@ export default function Estimates() {
 
                 {/* Items */}
                 <div className="space-y-2">
-                  {LINE_ITEMS.map((item) => (
+                  {lineItems.map((item) => (
                     <div key={item.id} className="grid grid-cols-12 gap-4 px-2 py-3 items-center text-sm border-b border-border/30 last:border-0 hover:bg-muted/20 rounded-md transition-colors group">
                       <div className="col-span-1">
                         <Badge variant="outline" className="text-[10px] h-5">{item.type}</Badge>
@@ -202,7 +236,12 @@ export default function Estimates() {
                       <div className="col-span-2 text-right text-muted-foreground">{item.rate}</div>
                       <div className="col-span-2 text-right font-bold">{item.total}</div>
                       <div className="col-span-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteLineItem(item.id)}
+                        >
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -223,20 +262,20 @@ export default function Estimates() {
             <div className="flex flex-col items-end gap-2 max-w-xs ml-auto">
               <div className="flex justify-between w-full text-sm">
                 <span className="text-muted-foreground">Parts Total:</span>
-                <span className="font-medium">$339.99</span>
+                <span className="font-medium">${totals.parts.toFixed(2)}</span>
               </div>
               <div className="flex justify-between w-full text-sm">
                 <span className="text-muted-foreground">Labor Total:</span>
-                <span className="font-medium">$333.50</span>
+                <span className="font-medium">${totals.labor.toFixed(2)}</span>
               </div>
                <div className="flex justify-between w-full text-sm">
                 <span className="text-muted-foreground">Fees & Tax:</span>
-                <span className="font-medium">$56.25</span>
+                <span className="font-medium">${totals.fees.toFixed(2)}</span>
               </div>
               <Separator className="my-2" />
               <div className="flex justify-between w-full text-xl font-bold font-display">
                 <span>Total:</span>
-                <span className="text-primary">$729.74</span>
+                <span className="text-primary">${totals.total.toFixed(2)}</span>
               </div>
             </div>
           </div>
