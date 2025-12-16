@@ -6,12 +6,28 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard/index";
 import RepairOrders from "@/pages/repair-orders/index";
+import Schedule from "@/pages/schedule/index";
+import Customers from "@/pages/customers/index";
+import AIAgent from "@/pages/ai-agent/index";
+import CRM from "@/pages/crm/index";
+import Reports from "@/pages/reports/index";
+import Inventory from "@/pages/inventory/index";
+import Financials from "@/pages/financials/index";
+import Estimates from "@/pages/estimates/index";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/repair-orders" component={RepairOrders} />
+      <Route path="/schedule" component={Schedule} />
+      <Route path="/customers" component={Customers} />
+      <Route path="/ai-agent" component={AIAgent} />
+      <Route path="/crm" component={CRM} />
+      <Route path="/reports" component={Reports} />
+      <Route path="/inventory" component={Inventory} />
+      <Route path="/financials" component={Financials} />
+      <Route path="/estimates" component={Estimates} />
       {/* Add more routes as we build them */}
       <Route component={NotFound} />
     </Switch>
