@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MOCK_METRICS, WORKFLOW_STAGES } from "@/lib/constants";
+import { JobAssignmentDialog } from "@/components/modals/JobAssignmentDialog";
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -45,8 +47,23 @@ const revenueData = [
 const COLORS = ['#FF0000', '#333333', '#666666', '#999999'];
 
 export default function Dashboard() {
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<{id: string, title: string} | null>(null);
+
+  const handleJobClick = (id: string, title: string) => {
+    setSelectedJob({ id, title });
+    setAssignmentOpen(true);
+  };
+
   return (
     <Layout>
+      <JobAssignmentDialog 
+        open={assignmentOpen} 
+        onOpenChange={setAssignmentOpen}
+        jobTitle={selectedJob?.title}
+        jobId={selectedJob?.id}
+      />
+      
       <div className="flex flex-col gap-6">
         {/* Top Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -128,7 +145,11 @@ export default function Dashboard() {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {[1, 2, 3, 4, 5].map((item) => (
-                    <div key={item} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div 
+                      key={item} 
+                      className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => handleJobClick(`${1023 + item}`, "2018 Ford F-150")}
+                    >
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center font-bold text-muted-foreground">
                           #{1023 + item}

@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { JobAssignmentDialog } from "@/components/modals/JobAssignmentDialog";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -30,9 +32,24 @@ const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "1
 
 export default function Schedule() {
   const today = new Date();
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<{id: string, title: string, tech: string} | null>(null);
+
+  const handleJobClick = (id: string, title: string, tech: string) => {
+    setSelectedJob({ id, title, tech });
+    setAssignmentOpen(true);
+  };
 
   return (
     <Layout>
+      <JobAssignmentDialog 
+        open={assignmentOpen} 
+        onOpenChange={setAssignmentOpen}
+        jobTitle={selectedJob?.title}
+        jobId={selectedJob?.id}
+        currentTech={selectedJob?.tech}
+      />
+
       <div className="flex flex-col h-[calc(100vh-8rem)] gap-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
@@ -99,7 +116,10 @@ export default function Schedule() {
                   return (
                     <div key={`${hour}-${bay}`} className="flex-1 border-r border-border/50 last:border-0 p-1 relative hover:bg-muted/5 transition-colors">
                       {appointment && (
-                        <div className={`absolute top-1 left-1 right-1 bottom-1 rounded-md p-2 border ${appointment.color} shadow-sm hover:shadow-md transition-all cursor-pointer z-10 flex flex-col justify-between`}>
+                        <div 
+                          className={`absolute top-1 left-1 right-1 bottom-1 rounded-md p-2 border ${appointment.color} shadow-sm hover:shadow-md transition-all cursor-pointer z-10 flex flex-col justify-between`}
+                          onClick={() => handleJobClick(`${appointment.id}`, appointment.vehicle, appointment.tech)}
+                        >
                           <div>
                             <div className="flex justify-between items-start">
                               <span className="font-bold text-xs truncate">{appointment.customer}</span>

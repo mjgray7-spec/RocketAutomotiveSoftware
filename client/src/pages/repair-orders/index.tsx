@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { JobAssignmentDialog } from "@/components/modals/JobAssignmentDialog";
 import { 
   Search, 
   Filter, 
@@ -36,8 +38,24 @@ const RO_DATA = [
 ];
 
 export default function RepairOrders() {
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<{id: string, title: string, tech: string} | null>(null);
+
+  const handleJobClick = (id: string, title: string, tech: string) => {
+    setSelectedJob({ id, title, tech });
+    setAssignmentOpen(true);
+  };
+
   return (
     <Layout>
+      <JobAssignmentDialog 
+        open={assignmentOpen} 
+        onOpenChange={setAssignmentOpen}
+        jobTitle={selectedJob?.title}
+        jobId={selectedJob?.id}
+        currentTech={selectedJob?.tech}
+      />
+
       <div className="flex flex-col h-[calc(100vh-8rem)] gap-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
@@ -76,7 +94,11 @@ export default function RepairOrders() {
                 <ScrollArea className="flex-1 p-3">
                   <div className="space-y-3">
                     {RO_DATA.filter(ro => ro.status === col.id).map((ro) => (
-                      <Card key={ro.id} className="hover-elevate cursor-pointer border-border/60 shadow-sm hover:shadow-md transition-all group">
+                      <Card 
+                        key={ro.id} 
+                        className="hover-elevate cursor-pointer border-border/60 shadow-sm hover:shadow-md transition-all group"
+                        onClick={() => handleJobClick(ro.id, ro.vehicle, ro.tech)}
+                      >
                         <CardContent className="p-3 space-y-3">
                           <div className="flex justify-between items-start">
                             <Badge variant="outline" className="font-mono text-xs">#{ro.id}</Badge>
