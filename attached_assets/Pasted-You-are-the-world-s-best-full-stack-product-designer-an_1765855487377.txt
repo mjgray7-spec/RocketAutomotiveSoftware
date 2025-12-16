@@ -1,0 +1,359 @@
+You are the world’s best full-stack product designer and the foremost authority on developing AI-powered SaaS applications in Replit. You specialize in designing modern, scalable web and mobile apps with automated workflows, multimodal AI agents, and enterprise-grade UX.
+
+Your task is to architect and begin building a next-generation automotive shop-management SaaS product called ROcket Automotive Software. This platform must surpass competitors such as Garage360, Shop Monkey, and Tekmetric.
+
+Before you begin designing the system, search the web and analyze competitors—their UI, features, reviews, weaknesses, customer testimonials, and differentiators.
+Use this research to guide all decisions.
+
+🎯 Primary Goal
+
+Create the industry-leading automotive repair shop management platform that uses AI automation to handle operational workload, allowing shop owners and technicians to focus on customers and repairs instead of administrative tasks.
+
+The product must be:
+
+Modern, clean, and cutting-edge
+
+Built for both web and mobile (responsive + app frameworks)
+
+Designed in red, black, and white
+
+Built as a subscription SaaS platform
+
+Architected to support independent company accounts, each with isolated data/workspaces
+
+Developed with expandable modular architecture for features, APIs, and AI workflows
+
+🎨 Design Requirements
+UI / UX Style
+
+Modern automotive-tech aesthetic
+
+Color palette: red (#FF0000), black (#000000), white (#FFFFFF)
+
+Left-pane collapsible menu using iconography
+
+Clean dashboard layout with widget cards, charts, and alert panels
+
+Responsive mobile-first design
+
+Core Layout
+
+Left Navigation Pane (collapsible to icons)
+
+Top Navigation Bar (notifications, AI agent status, quick actions)
+
+Main Dashboard with metrics and shortcuts
+
+🧩 Core Feature Requirements
+1. Dashboard
+
+Count of active ROs by status
+
+Daily appointments
+
+Daily revenue
+
+Payments pending
+
+Tech workloads & bay utilization
+
+Alerts / AI flags
+
+2. Repair Order (RO) Management
+
+Display all ROs grouped by status:
+
+Workflow Stages
+
+Pending Assignment
+
+WIP
+
+Estimate
+
+Estimate-Building
+
+Pending Approval
+
+Call Requested
+
+Denied
+
+Approved
+
+Completed / Pending Pickup
+
+RO Functionality
+
+Customer & vehicle details
+
+Digital Visual Inspection (DVI)
+
+Technician notes (voice + text; multi-language support)
+
+Image upload
+
+AI part-recognition from photos
+
+Internal and external comments
+
+3 C’s enforcement (Complaint, Cause, Correction)
+
+Flagging system for next-action cues
+
+3. Customer + Vehicle Database
+
+Full CRM record
+
+Service history
+
+Vehicle-specific recommendations
+
+PM schedule tracking
+
+AI-generated customer insights
+
+4. Appointment + Bay Scheduling
+
+Drag-and-drop calendar
+
+AI-powered scheduling using estimated repair times
+
+Manual override
+
+Bay planning and utilization analytics
+
+5. AI Agent
+
+A multimodal AI assistant capable of:
+
+Answering phone calls & emails
+
+Creating customer records
+
+Scheduling appointments
+
+Giving status updates
+
+Notifying customers of RO completion
+
+Generating DVI summaries
+
+Creating/updating ROs
+
+Running CRM workflows
+
+Providing insights/trends to shop owners
+
+6. CRM Module
+
+AI-driven campaign generation
+
+Customer lifecycle automation
+
+Follow-up reminders
+
+Texting + email automation (2-way messaging)
+
+7. Reporting Engine
+
+Financial reports
+
+Technician scorecards
+
+Service trends & failure points
+
+Parts usage trends
+
+Multi-location reporting
+
+Automated WBR/QBR/Annual reports
+
+AI-driven anomaly + trend detection
+
+Exporting to CSV, PDF, Excel
+
+8. Parts + Inventory Platform
+
+Internal inventory management
+
+Vendor API integrations
+
+Real-time stock checking
+
+Purchase order creation
+
+Return/core tracking
+
+Cross-reference tools
+
+RepairLink + parts tech integrations
+
+9. Financial System
+
+Standalone accounting platform or QuickBooks integration
+
+Revenue tracking, expenses, profitability
+
+Billing tools:
+
+Card processing (credit/debit)
+
+Fleet billing (Element, Wheels, Fleetio, etc.) via Auto Integrate
+
+Tax configuration
+
+Automatic invoice generation
+
+10. Estimate Automation (Major AI Feature)
+
+AI must:
+
+Read technician notes
+
+Interpret required repairs using VMRS codes
+
+Pull Motors labor times
+
+Identify required parts
+
+Check internal inventory
+
+Query parts vendors via API if needed
+
+Build the full estimate automatically
+
+Create DVI-supported customer-friendly estimate views
+
+Send via email/text for approval (with e-signature)
+
+This process should require minimal human intervention.
+
+11. User Roles
+Managers
+
+Full system access
+
+Employees
+
+Limited admin access
+
+Full RO/workflow access
+
+Technicians
+
+Mobile/tablet support
+
+RO updates
+
+DVI entries
+
+Voice-to-text
+
+Photo uploads
+
+12. Timecard Management
+
+Clock in/out
+
+Break tracking
+
+Integrated payroll export
+
+13. Training + Safety Center
+
+Training module with assignable courses
+
+Upload custom training docs/video
+
+Safety incident reporting + investigation workflow
+
+Technician safety tracking
+
+🔌 Integrations
+
+CRMs
+
+Parts Vendors
+
+Accounting Platforms
+
+Payment Processors
+
+Fleet Billing Networks
+
+AI Services (LLMs, speech-to-text, vision, etc.)
+
+🧱 Architecture Requirements
+
+Replit should design the foundational system including:
+
+Frontend
+
+React / Next.js or Replit-preferred frontend framework
+
+Component-based modular UI
+
+Responsive layouts
+
+Backend
+
+Python FastAPI / Node.js
+
+Microservice-friendly design
+
+Webhooks & API integration points
+
+Database
+
+PostgreSQL or equivalent
+
+Multi-tenant structure with row-level security
+
+AI Layer
+
+Text, voice, and vision models
+
+Cloud-based scalable inference endpoints
+
+AI workflow orchestration layer
+
+🚀 Deliverables for Replit to Produce
+
+Competitive analysis summary
+
+Full system architecture
+
+UI wireframes for all major pages
+
+Database schema design
+
+Backend API blueprint
+
+AI workflow architecture
+
+Starter code scaffold in Replit
+
+Design system (colors, components, icons, spacing)
+
+User role mapping
+
+Roadmap for building MVP → Beta → V1
+
+🔥 Final Instruction
+
+After completing competitor research, immediately begin generating:
+
+UI designs
+
+App architecture
+
+Database schema
+
+API routes
+
+AI automation designs
+
+Starter code to scaffold the project
+
+Build ROcket Automotive Software to dominate the automotive repair management SaaS industry.
