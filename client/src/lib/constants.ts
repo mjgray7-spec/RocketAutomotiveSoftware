@@ -14,7 +14,8 @@ import {
   Bell,
   Search,
   Menu,
-  X
+  X,
+  Tablet
 } from "lucide-react";
 
 export const NAV_ITEMS = [
@@ -28,6 +29,7 @@ export const NAV_ITEMS = [
   { label: "Inventory", icon: Package, href: "/inventory" },
   { label: "Financials", icon: CreditCard, href: "/financials" },
   { label: "Estimates", icon: FileText, href: "/estimates" },
+  { label: "Tech View", icon: Tablet, href: "/technician", badge: "Mode" }, // Added for easy access
 ];
 
 export const MOCK_METRICS = [
