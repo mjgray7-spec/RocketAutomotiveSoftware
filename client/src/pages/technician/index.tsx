@@ -1,3 +1,5 @@
+import { useState, useMemo } from "react";
+import { useData } from "@/lib/DataContext";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +18,46 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 
-const MY_JOBS = [
-  { id: "1024", vehicle: "2018 Ford F-150", service: "Brake Job + Oil Change", status: "In Progress", promised: "4:00 PM", priority: "High", progress: 45 },
-  { id: "1029", vehicle: "2022 Audi R8", service: "Electrical Diag", status: "Pending", promised: "Tomorrow", priority: "Normal", progress: 0 },
-];
+// Helper to parse time strings for sorting (simple version)
+const parseTime = (timeStr: string) => {
+  if (!timeStr) return 9999;
+  if (timeStr.includes("Tomorrow")) return 2000;
+  if (timeStr.includes("Done")) return 3000;
+  
+  // Simple parser for "08:00 AM" format
+  const [time, period] = timeStr.split(" ");
+  if (!time || !period) return 1000;
+  
+  let [hours, minutes] = time.split(":").map(Number);
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  
+  return hours * 60 + minutes;
+};
 
 export default function TechnicianDashboard() {
+  const { repairOrders } = useData();
+  
+  // 1. Filter jobs for current tech (mocked as "Mike T.")
+  // 2. Sort by time
+  const myJobs = useMemo(() => {
+    return repairOrders
+      .filter(ro => ro.tech === "Mike T." && ro.status !== "completed")
+      .sort((a, b) => parseTime(a.due) - parseTime(b.due));
+  }, [repairOrders]);
+
+  const [activeJobId, setActiveJobId] = useState<string | null>(
+    myJobs.length > 0 ? myJobs[0].id : null
+  );
+
+  // If active job is completed or removed, switch to next available
+  if (activeJobId && !myJobs.find(j => j.id === activeJobId) && myJobs.length > 0) {
+    setActiveJobId(myJobs[0].id);
+  }
+
+  const activeJob = myJobs.find(j => j.id === activeJobId) || myJobs[0];
+  const upNextJobs = myJobs.filter(j => j.id !== activeJob?.id);
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       {/* Tech Header - Simplified for Tablet */}
@@ -54,79 +90,102 @@ export default function TechnicianDashboard() {
         {/* Active Job Card */}
         <section>
           <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Current Job</h2>
-          <Card className="border-primary/50 shadow-lg shadow-primary/10 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row justify-between gap-6">
-                <div className="space-y-4 flex-1">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <Badge variant="outline" className="bg-background">RO #1024</Badge>
-                      <Badge className="bg-blue-500 hover:bg-blue-600">In Progress</Badge>
+          
+          {activeJob ? (
+            <Card className="border-primary/50 shadow-lg shadow-primary/10 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row justify-between gap-6">
+                  <div className="space-y-4 flex-1">
+                    <div>
+                      <div className="flex items-center gap-3 mb-1">
+                        <Badge variant="outline" className="bg-background">RO #{activeJob.id}</Badge>
+                        <Badge className="bg-blue-500 hover:bg-blue-600">
+                          {activeJob.status === 'wip' ? 'In Progress' : activeJob.status}
+                        </Badge>
+                        {activeJob.urgent && <Badge variant="destructive">Urgent</Badge>}
+                      </div>
+                      <h3 className="text-3xl font-display font-bold">{activeJob.vehicle}</h3>
+                      <p className="text-lg text-muted-foreground">{activeJob.service}</p>
                     </div>
-                    <h3 className="text-3xl font-display font-bold">2018 Ford F-150</h3>
-                    <p className="text-lg text-muted-foreground">Brake Job (Front) • Synthetic Oil Change</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-6 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>Promised: <strong>4:00 PM</strong></span>
+                    
+                    <div className="flex items-center gap-6 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>Promised: <strong>{activeJob.due}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>Bay: <strong>{activeJob.bay || "Unassigned"}</strong></span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>Bay: <strong>3</strong></span>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span>Job Progress</span>
+                        <span>45%</span>
+                      </div>
+                      <Progress value={45} className="h-3" />
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs font-medium">
-                      <span>Job Progress</span>
-                      <span>45%</span>
-                    </div>
-                    <Progress value={45} className="h-3" />
+                  <div className="flex flex-col gap-3 justify-center min-w-[200px]">
+                    <Button size="lg" className="h-14 text-lg bg-red-500 hover:bg-red-600 text-white gap-2">
+                      <Pause className="h-6 w-6 fill-current" /> Stop Timer
+                    </Button>
+                    <Button size="lg" variant="secondary" className="h-14 text-lg gap-2" asChild>
+                      <Link href={`/technician/dvi/${activeJob.id}`}>
+                         <Camera className="h-6 w-6" /> Resume DVI
+                      </Link>
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex flex-col gap-3 justify-center min-w-[200px]">
-                  <Button size="lg" className="h-14 text-lg bg-red-500 hover:bg-red-600 text-white gap-2">
-                    <Pause className="h-6 w-6 fill-current" /> Stop Timer
-                  </Button>
-                  <Button size="lg" variant="secondary" className="h-14 text-lg gap-2" asChild>
-                    <Link href="/technician/dvi/1024">
-                       <Camera className="h-6 w-6" /> Resume DVI
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-border/50 bg-muted/10 border-dashed">
+              <CardContent className="p-12 flex flex-col items-center justify-center text-center text-muted-foreground">
+                <CheckCircle2 className="h-12 w-12 mb-4 opacity-20" />
+                <h3 className="text-lg font-bold">All Caught Up!</h3>
+                <p>No active jobs assigned to you.</p>
+              </CardContent>
+            </Card>
+          )}
         </section>
 
         {/* Up Next */}
-        <section>
-          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Up Next</h2>
-          <div className="space-y-3">
-            {MY_JOBS.slice(1).map((job) => (
-              <Card key={job.id} className="border-border/50 bg-muted/20 hover:bg-card transition-colors">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-secondary flex items-center justify-center font-bold text-muted-foreground">
-                      {job.id.slice(-2)}
+        {upNextJobs.length > 0 && (
+          <section>
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Up Next</h2>
+            <div className="space-y-3">
+              {upNextJobs.map((job) => (
+                <Card 
+                  key={job.id} 
+                  className="border-border/50 bg-muted/20 hover:bg-card transition-colors cursor-pointer group hover:border-primary/20"
+                  onClick={() => setActiveJobId(job.id)}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-lg bg-secondary flex items-center justify-center font-bold text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        {job.id.slice(-2)}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-lg">{job.vehicle}</h4>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>{job.service}</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-background border border-border">Due: {job.due}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-lg">{job.vehicle}</h4>
-                      <p className="text-sm text-muted-foreground">{job.service}</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon">
-                    <ChevronRight className="h-6 w-6 text-muted-foreground" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
+                    <Button variant="ghost" size="icon" className="group-hover:translate-x-1 transition-transform">
+                      <Play className="h-5 w-5 text-muted-foreground group-hover:text-primary fill-current" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Quick Actions */}
         <section className="grid grid-cols-2 gap-4">
