@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { DataProvider } from "@/lib/DataContext"; // Import Provider
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard/index";
 import RepairOrders from "@/pages/repair-orders/index";
@@ -41,10 +42,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <DataProvider> {/* Wrap App in DataProvider */}
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </DataProvider>
     </QueryClientProvider>
   );
 }

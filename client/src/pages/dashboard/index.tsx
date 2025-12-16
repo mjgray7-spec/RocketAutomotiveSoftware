@@ -5,12 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { MOCK_METRICS, WORKFLOW_STAGES } from "@/lib/constants";
 import { EditRODialog } from "@/components/modals/EditRODialog";
+import { useData } from "@/lib/DataContext"; // Use Global Data
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
   Plus, 
-  Clock, 
-  CheckCircle2, 
   AlertCircle,
   MoreHorizontal,
   Bot,
@@ -29,7 +28,7 @@ import {
   Cell
 } from 'recharts';
 
-// Mock Chart Data
+// Mock Chart Data (unchanged)
 const workloadData = [
   { name: 'Mon', active: 12, completed: 8 },
   { name: 'Tue', active: 15, completed: 10 },
@@ -47,17 +46,8 @@ const revenueData = [
 ];
 const COLORS = ['#FF0000', '#333333', '#666666', '#999999'];
 
-// Mock RO Data for Dashboard List
-const INITIAL_RECENT_ROS = [
-  { id: "1024", customer: "John Smith", vehicle: "2018 Ford F-150", status: "wip", tech: "Mike T.", service: "Brake Job + Oil Change", due: "Today, 4:00 PM" },
-  { id: "1025", customer: "Sarah Connor", vehicle: "2021 Tesla Model 3", status: "pending", tech: "Unassigned", service: "Tire Rotation", due: "Tomorrow, 10:00 AM" },
-  { id: "1026", customer: "Bruce Wayne", vehicle: "2019 Lamborghini Urus", status: "estimate", tech: "Batman", service: "Engine Diagnostics", due: "Today, 5:00 PM" },
-  { id: "1027", customer: "Clark Kent", vehicle: "2015 Honda Civic", status: "approval", tech: "Superman", service: "Transmission Fluid", due: "Yesterday", urgent: true },
-  { id: "1028", customer: "Diana Prince", vehicle: "2020 Jeep Wrangler", status: "completed", tech: "Wonder Woman", service: "Alignment", due: "Done" },
-];
-
 export default function Dashboard() {
-  const [recentROs, setRecentROs] = useState(INITIAL_RECENT_ROS);
+  const { repairOrders, updateRepairOrder } = useData(); // Consume Context
   const [editOpen, setEditOpen] = useState(false);
   const [selectedRO, setSelectedRO] = useState<any>(null);
 
@@ -67,7 +57,12 @@ export default function Dashboard() {
   };
 
   const handleSaveRO = (updatedRO: any) => {
-    setRecentROs(recentROs.map(ro => ro.id === updatedRO.id ? updatedRO : ro));
+    updateRepairOrder(updatedRO); // Update Global Context
+  };
+  
+  // Calculate dynamic counts for workflow
+  const getStageCount = (stageId: string) => {
+    return repairOrders.filter(ro => ro.status === stageId).length;
   };
 
   return (
@@ -140,7 +135,7 @@ export default function Dashboard() {
                       key={stage.id} 
                       className={`p-3 rounded-lg border flex flex-col items-center justify-center text-center gap-2 transition-colors hover:bg-opacity-80 cursor-pointer ${stage.color}`}
                     >
-                      <span className="text-2xl font-bold font-display">{stage.count}</span>
+                      <span className="text-2xl font-bold font-display">{getStageCount(stage.id)}</span>
                       <span className="text-xs font-medium leading-tight">{stage.label}</span>
                     </div>
                   ))}
@@ -159,7 +154,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
-                  {recentROs.map((ro) => (
+                  {repairOrders.slice(0, 5).map((ro) => (
                     <div 
                       key={ro.id} 
                       className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer"

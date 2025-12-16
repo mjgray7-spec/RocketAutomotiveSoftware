@@ -3,17 +3,15 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EditRODialog } from "@/components/modals/EditRODialog";
+import { useData } from "@/lib/DataContext"; // Use Context
 import { 
   Search, 
   Filter, 
   Plus, 
-  MoreVertical, 
-  Calendar, 
   User, 
-  Car,
   Clock,
   AlertTriangle
 } from "lucide-react";
@@ -27,18 +25,8 @@ const COLUMNS = [
   { id: "completed", title: "Completed", color: "bg-green-500/10 border-green-200" },
 ];
 
-// Initial Mock Data
-const INITIAL_RO_DATA = [
-  { id: "1024", customer: "John Smith", vehicle: "2018 Ford F-150", status: "wip", tech: "Mike T.", service: "Brake Job + Oil Change", due: "Today, 4:00 PM" },
-  { id: "1025", customer: "Sarah Connor", vehicle: "2021 Tesla Model 3", status: "pending", tech: "Unassigned", service: "Tire Rotation", due: "Tomorrow, 10:00 AM" },
-  { id: "1026", customer: "Bruce Wayne", vehicle: "2019 Lamborghini Urus", status: "estimate", tech: "Batman", service: "Engine Diagnostics", due: "Today, 5:00 PM" },
-  { id: "1027", customer: "Clark Kent", vehicle: "2015 Honda Civic", status: "approval", tech: "Superman", service: "Transmission Fluid", due: "Yesterday", urgent: true },
-  { id: "1028", customer: "Diana Prince", vehicle: "2020 Jeep Wrangler", status: "completed", tech: "Wonder Woman", service: "Alignment", due: "Done" },
-  { id: "1029", customer: "Tony Stark", vehicle: "2022 Audi R8", status: "wip", tech: "Jarvis", service: "Electrical System", due: "Today, 2:00 PM" },
-];
-
 export default function RepairOrders() {
-  const [roList, setRoList] = useState(INITIAL_RO_DATA);
+  const { repairOrders, updateRepairOrder } = useData(); // Use Global Data
   const [editOpen, setEditOpen] = useState(false);
   const [selectedRO, setSelectedRO] = useState<any>(null);
 
@@ -48,7 +36,7 @@ export default function RepairOrders() {
   };
 
   const handleSaveRO = (updatedRO: any) => {
-    setRoList(roList.map(ro => ro.id === updatedRO.id ? updatedRO : ro));
+    updateRepairOrder(updatedRO);
   };
 
   return (
@@ -90,14 +78,14 @@ export default function RepairOrders() {
                 <div className={`p-3 border-b border-border/50 flex items-center justify-between ${col.color} bg-opacity-20 rounded-t-xl`}>
                   <h3 className="font-semibold text-sm uppercase tracking-wide">{col.title}</h3>
                   <Badge variant="secondary" className="bg-background/50 backdrop-blur">
-                    {roList.filter(ro => ro.status === col.id).length}
+                    {repairOrders.filter(ro => ro.status === col.id).length}
                   </Badge>
                 </div>
 
                 {/* Column Content */}
                 <ScrollArea className="flex-1 p-3">
                   <div className="space-y-3">
-                    {roList.filter(ro => ro.status === col.id).map((ro) => (
+                    {repairOrders.filter(ro => ro.status === col.id).map((ro) => (
                       <Card 
                         key={ro.id} 
                         className="hover-elevate cursor-pointer border-border/60 shadow-sm hover:shadow-md transition-all group"

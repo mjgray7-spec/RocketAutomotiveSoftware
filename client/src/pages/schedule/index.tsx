@@ -1,72 +1,35 @@
 import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
 import { EditRODialog } from "@/components/modals/EditRODialog";
+import { useData } from "@/lib/DataContext"; // Use Context
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Calendar as CalendarIcon, 
-  Clock, 
   MoreHorizontal,
   Plus,
-  User,
   Wrench,
   Filter
 } from "lucide-react";
-import { addDays, format, startOfWeek } from "date-fns";
-
-// Mock Appointments
-const INITIAL_APPOINTMENTS = [
-  { id: 1, customer: "John Smith", vehicle: "2018 Ford F-150", service: "Brake Job", time: "08:00 AM", duration: 2, tech: "Mike T.", color: "bg-blue-500/10 border-blue-200 text-blue-700", status: "wip" },
-  { id: 2, customer: "Sarah Connor", vehicle: "2021 Tesla Model 3", service: "Tire Rotation", time: "09:30 AM", duration: 1, tech: "Unassigned", color: "bg-orange-500/10 border-orange-200 text-orange-700", status: "pending" },
-  { id: 3, customer: "Bruce Wayne", vehicle: "Lamborghini Urus", service: "Engine Diagnostics", time: "11:00 AM", duration: 3, tech: "Batman", color: "bg-purple-500/10 border-purple-200 text-purple-700", status: "estimate" },
-  { id: 4, customer: "Clark Kent", vehicle: "Honda Civic", service: "Oil Change", time: "02:00 PM", duration: 1, tech: "Superman", color: "bg-green-500/10 border-green-200 text-green-700", status: "completed" },
-];
+import { format } from "date-fns";
 
 const BAYS = ["Bay 1", "Bay 2", "Bay 3", "Bay 4", "Alignment Rack", "Quick Lube"];
-
 const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
 export default function Schedule() {
   const today = new Date();
-  const [appointments, setAppointments] = useState(INITIAL_APPOINTMENTS);
+  const { repairOrders, updateRepairOrder } = useData(); // Use Global Data
   const [editOpen, setEditOpen] = useState(false);
   const [selectedRO, setSelectedRO] = useState<any>(null);
 
-  const handleJobClick = (app: any) => {
-    // Map appointment data to RO format for the dialog
-    setSelectedRO({
-      id: `APP-${app.id}`,
-      customer: app.customer,
-      vehicle: app.vehicle,
-      status: app.status,
-      tech: app.tech,
-      service: app.service,
-      due: app.time,
-      bay: BAYS[app.id % BAYS.length] // Mock bay assignment
-    });
+  const handleJobClick = (ro: any) => {
+    setSelectedRO(ro);
     setEditOpen(true);
   };
 
   const handleSaveRO = (updatedRO: any) => {
-    // Map back to appointment format
-    const updatedApps = appointments.map(app => 
-      `APP-${app.id}` === updatedRO.id 
-        ? {
-            ...app,
-            customer: updatedRO.customer,
-            vehicle: updatedRO.vehicle,
-            status: updatedRO.status,
-            tech: updatedRO.tech,
-            service: updatedRO.service,
-            time: updatedRO.due
-          }
-        : app
-    );
-    setAppointments(updatedApps);
+    updateRepairOrder(updatedRO);
   };
 
   return (
@@ -131,21 +94,26 @@ export default function Schedule() {
 
                 {/* Bay Slots */}
                 {BAYS.map((bay, index) => {
-                  // Mock putting appointments in random slots for visual demo
-                  // In a real app, this would be calculated based on start time and bay assignment
-                  const appointment = appointments.find(app => {
-                    const appHour = parseInt(app.time.split(':')[0]);
-                    const isPM = app.time.includes('PM') && appHour !== 12;
-                    const hour24 = isPM ? appHour + 12 : appHour;
+                  // Find RO for this slot (Mock logic: matches hour and bay)
+                  const appointment = repairOrders.find(ro => {
+                    if (!ro.bay) return false;
+                    const roHour = parseInt(ro.due.split(':')[0]);
+                    const isPM = ro.due.includes('PM') && roHour !== 12;
+                    const hour24 = isPM ? roHour + 12 : roHour;
                     const slotHour = parseInt(hour.split(':')[0]);
-                    return hour24 === slotHour && (index % 3 === app.id % 3); // simplistic distribution
+                    
+                    return hour24 === slotHour && ro.bay === bay;
                   });
 
                   return (
                     <div key={`${hour}-${bay}`} className="flex-1 border-r border-border/50 last:border-0 p-1 relative hover:bg-muted/5 transition-colors">
                       {appointment && (
                         <div 
-                          className={`absolute top-1 left-1 right-1 bottom-1 rounded-md p-2 border ${appointment.color} shadow-sm hover:shadow-md transition-all cursor-pointer z-10 flex flex-col justify-between`}
+                          className={`absolute top-1 left-1 right-1 bottom-1 rounded-md p-2 border shadow-sm hover:shadow-md transition-all cursor-pointer z-10 flex flex-col justify-between ${
+                            appointment.status === 'wip' ? 'bg-blue-500/10 border-blue-200 text-blue-700' :
+                            appointment.status === 'pending' ? 'bg-slate-500/10 border-slate-200 text-slate-700' :
+                            'bg-green-500/10 border-green-200 text-green-700'
+                          }`}
                           onClick={() => handleJobClick(appointment)}
                         >
                           <div>
