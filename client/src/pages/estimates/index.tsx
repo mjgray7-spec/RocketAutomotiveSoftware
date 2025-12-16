@@ -68,13 +68,20 @@ const INITIAL_JOBS: EstimateJob[] = [
 ];
 
 import { AddJobDialog } from "@/components/modals/AddJobDialog";
+import { AddLineItemDialog } from "@/components/modals/AddLineItemDialog";
 import { VMRSCode } from "@/lib/vmrs-data";
+
+interface EstimateJobWithVmrs extends EstimateJob {
+  vmrsCode?: string;
+}
 
 export default function Estimates() {
   const { repairOrders } = useData();
   const [dviOpen, setDviOpen] = useState(true);
-  const [jobs, setJobs] = useState<EstimateJob[]>(INITIAL_JOBS);
+  const [jobs, setJobs] = useState<EstimateJobWithVmrs[]>(INITIAL_JOBS);
   const [addJobOpen, setAddJobOpen] = useState(false);
+  const [addLineItemOpen, setAddLineItemOpen] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<number | null>(null);
   
   // Find RO 1025 for this mockup view
   const currentRO = repairOrders.find(ro => ro.id === "1025");
@@ -98,30 +105,34 @@ export default function Estimates() {
     const newJobId = Math.max(0, ...jobs.map(j => j.id)) + 1;
     setJobs(prev => [...prev, {
       id: newJobId,
-      title: `Job ${newJobId}: ${vmrs.description} (${vmrs.code})`,
+      title: `Job ${newJobId}: ${vmrs.component} (${vmrs.code})`,
+      vmrsCode: vmrs.code,
       lineItems: []
     }]);
   };
 
-  const handleAddLineItemToJob = (jobId: number) => {
-     setJobs(prev => prev.map(job => {
-      if (job.id === jobId) {
+  const handleOpenAddLineItem = (jobId: number) => {
+    setActiveJobId(jobId);
+    setAddLineItemOpen(true);
+  };
+
+  const handleAddLineItemToJob = (lineItem: Omit<LineItem, "id">) => {
+    if (activeJobId === null) return;
+    
+    setJobs(prev => prev.map(job => {
+      if (job.id === activeJobId) {
         const newItemId = Math.max(0, ...job.lineItems.map(i => i.id)) + 1;
         return {
           ...job,
           lineItems: [...job.lineItems, {
-             id: newItemId,
-             type: "Labor",
-             description: "New Service Item",
-             quantity: 1,
-             rate: "$145.00",
-             total: "$145.00",
-             source: "Manual"
+            id: newItemId,
+            ...lineItem
           }]
         };
       }
       return job;
     }));
+    setActiveJobId(null);
   };
 
   const handleAddToEstimate = (item: InspectionItem) => {
@@ -136,7 +147,7 @@ export default function Estimates() {
     const totalCost = laborTime.hours * laborRate;
 
     const description = vmrs 
-      ? `${vmrs.description} (VMRS: ${vmrs.code})`
+      ? `${vmrs.component} (VMRS: ${vmrs.code})`
       : `Fix: ${item.category}`;
       
     const notes = item.notes ? ` - ${item.notes}` : "";
@@ -153,11 +164,12 @@ export default function Estimates() {
 
     // Create a NEW Job for this finding
     const newJobId = Math.max(0, ...jobs.map(j => j.id)) + 1;
-    const newJob: EstimateJob = {
+    const newJob: EstimateJobWithVmrs = {
       id: newJobId,
       title: vmrs 
-        ? `Job ${newJobId}: ${vmrs.description} (VMRS: ${vmrs.code})` 
+        ? `Job ${newJobId}: ${vmrs.component} (VMRS: ${vmrs.code})` 
         : `Job ${newJobId}: ${item.category} Repair`,
+      vmrsCode: vmrs?.code,
       lineItems: [newLineItem]
     };
 
@@ -372,7 +384,7 @@ export default function Estimates() {
                   <Button 
                     variant="ghost" 
                     className="w-full border border-dashed border-border/50 text-muted-foreground h-10 hover:bg-muted/50 mt-4"
-                    onClick={() => handleAddLineItemToJob(job.id)}
+                    onClick={() => handleOpenAddLineItem(job.id)}
                   >
                     <Plus className="h-4 w-4 mr-2" /> Add Line Item
                   </Button>
@@ -417,6 +429,13 @@ export default function Estimates() {
         open={addJobOpen} 
         onOpenChange={setAddJobOpen} 
         onAddJob={handleAddJob}
+      />
+
+      <AddLineItemDialog
+        open={addLineItemOpen}
+        onOpenChange={setAddLineItemOpen}
+        onAddLineItem={handleAddLineItemToJob}
+        jobVmrsCode={activeJobId ? jobs.find(j => j.id === activeJobId)?.vmrsCode : undefined}
       />
     </Layout>
   );

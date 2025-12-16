@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { lookupLaborTime } from "./motors-api";
 import { 
   insertCustomerSchema, 
   insertVehicleSchema, 
@@ -16,6 +17,26 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // ============ MOTORS API ============
+  app.get("/api/motors/labor-time", async (req, res) => {
+    try {
+      const vmrsCode = req.query.vmrsCode as string;
+      if (!vmrsCode) {
+        return res.status(400).json({ error: "VMRS code is required" });
+      }
+      
+      const laborTime = await lookupLaborTime(vmrsCode);
+      if (laborTime) {
+        res.json(laborTime);
+      } else {
+        res.status(404).json({ error: "No labor time found for this code" });
+      }
+    } catch (error) {
+      console.error("Motors API error:", error);
+      res.status(500).json({ error: "Failed to lookup labor time" });
+    }
+  });
   
   // ============ CUSTOMERS ============
   app.get("/api/customers", async (req, res) => {
