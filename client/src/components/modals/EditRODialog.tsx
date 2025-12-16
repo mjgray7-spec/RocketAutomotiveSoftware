@@ -33,8 +33,21 @@ import {
   Plus, 
   Save, 
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle2,
+  Package,
+  FileText
 } from "lucide-react";
+
+// Updated Interface to Match Global Context
+interface ServiceItem {
+  id: string;
+  description: string;
+  type: "Labor" | "Part" | "Sublet";
+  status: "pending" | "completed";
+  hours?: number;
+  notes?: string;
+}
 
 interface ROData {
   id: string;
@@ -46,6 +59,8 @@ interface ROData {
   due: string;
   notes?: string;
   bay?: string;
+  dviStatus?: string;
+  lineItems?: ServiceItem[];
 }
 
 interface EditRODialogProps {
@@ -92,6 +107,15 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-500/10 text-green-500 border-green-200';
+      case 'wip': return 'bg-blue-500/10 text-blue-500 border-blue-200';
+      case 'pending': return 'bg-slate-500/10 text-slate-500 border-slate-200';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
@@ -102,6 +126,11 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
             <div className="flex items-center gap-3 mb-1">
               <DialogTitle className="text-2xl font-display font-bold">RO #{formData.id}</DialogTitle>
               <Badge variant="outline" className="bg-background">{formData.vehicle}</Badge>
+              {formData.dviStatus === 'submitted' && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> DVI Completed
+                </Badge>
+              )}
             </div>
             <DialogDescription className="flex items-center gap-2">
               <User className="h-3 w-3" /> {formData.customer}
@@ -126,7 +155,7 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
-          <Tabs defaultValue="details" className="w-full">
+          <Tabs defaultValue="services" className="w-full">
             <div className="px-6 pt-4 border-b border-border">
               <TabsList className="bg-transparent h-10 p-0 space-x-6">
                 <TabsTrigger value="details" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-2">Details & Assignment</TabsTrigger>
@@ -229,22 +258,53 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
                      <span className="font-bold text-sm">Service Line Items</span>
                      <Button variant="ghost" size="sm" className="h-8"><Plus className="h-3 w-3 mr-1" /> Add Service</Button>
                   </div>
-                  <div className="p-0">
-                    <div className="flex items-center p-4 border-b last:border-0 gap-4">
-                      <div className="h-8 w-8 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">1</div>
-                      <div className="flex-1">
-                        <Input 
-                          value={formData.service} 
-                          onChange={(e) => setFormData({...formData, service: e.target.value})}
-                          className="font-medium border-transparent hover:border-border px-0 h-auto py-1"
-                        />
-                        <p className="text-xs text-muted-foreground">Customer Request: Noise when braking</p>
+                  <div className="p-0 divide-y divide-border">
+                    {/* Render Dynamic Line Items if available */}
+                    {formData.lineItems && formData.lineItems.length > 0 ? (
+                      formData.lineItems.map((item, index) => (
+                        <div key={item.id} className="flex items-start p-4 gap-4 hover:bg-muted/5 transition-colors">
+                          <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${item.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
+                             {item.status === 'completed' ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                          </div>
+                          
+                          <div className="flex-1 space-y-1">
+                             <div className="flex items-center gap-2">
+                               <span className={`font-medium ${item.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>{item.description}</span>
+                               <Badge variant="outline" className="text-[10px] h-5">{item.type}</Badge>
+                             </div>
+                             {item.notes && (
+                               <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                 <FileText className="h-3 w-3" /> {item.notes}
+                               </p>
+                             )}
+                          </div>
+
+                          <div className="text-right space-y-1">
+                             {item.type === 'Labor' && item.hours && (
+                               <div className="text-sm font-mono text-muted-foreground">{item.hours}h</div>
+                             )}
+                             {item.type === 'Part' && (
+                               <Badge variant="secondary" className="text-[10px]">Qty: 1</Badge>
+                             )}
+                          </div>
+                          
+                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      ))
+                    ) : (
+                      // Fallback for Legacy Data
+                      <div className="flex items-center p-4 gap-4">
+                        <div className="h-8 w-8 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">1</div>
+                        <div className="flex-1">
+                          <Input 
+                            value={formData.service} 
+                            onChange={(e) => setFormData({...formData, service: e.target.value})}
+                            className="font-medium border-transparent hover:border-border px-0 h-auto py-1"
+                          />
+                          <p className="text-xs text-muted-foreground">Legacy Service Description</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                         <Badge variant="outline">Labor: 2.5h</Badge>
-                      </div>
-                      <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </TabsContent>
@@ -262,9 +322,26 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
                     </div>
                     <div className="space-y-2">
                       <h4 className="text-xs font-bold text-muted-foreground uppercase">Activity Log</h4>
-                      <div className="text-sm border-l-2 border-muted pl-4 space-y-3">
+                      <div className="text-sm border-l-2 border-muted pl-4 space-y-4">
+                        {/* Dynamic Log Entries based on status */}
+                        {formData.status === 'completed' && (
+                           <div className="relative">
+                             <div className="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                             <p><strong>Job Completed</strong> by {formData.tech}</p>
+                             <p className="text-xs text-muted-foreground">Just now</p>
+                           </div>
+                        )}
+                        
+                        {formData.dviStatus === 'submitted' && (
+                           <div className="relative">
+                             <div className="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-blue-500 border-2 border-background" />
+                             <p><strong>DVI Submitted</strong> by {formData.tech}</p>
+                             <p className="text-xs text-muted-foreground">10 mins ago</p>
+                           </div>
+                        )}
+
                         <div className="relative">
-                           <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
+                           <div className="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-primary border-2 border-background" />
                            <p><strong>RO Created</strong> by John Manager</p>
                            <p className="text-xs text-muted-foreground">Today, 8:00 AM</p>
                         </div>
