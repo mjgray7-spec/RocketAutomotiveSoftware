@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { 
   ChevronLeft, 
   Camera, 
@@ -15,7 +16,8 @@ import {
   ImagePlus,
   ArrowRight,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Upload
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -47,27 +49,43 @@ export default function DVI({ params }: { params: { id: string } }) {
   const [submitting, setSubmitting] = useState(false);
   const [, setLocation] = useLocation();
 
+  // Dialog States
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [activeItemId, setActiveItemId] = useState<number | null>(null);
+
   // Mock Photo/Voice States
   const [recording, setRecording] = useState<number | null>(null); // item ID
-  const [uploading, setUploading] = useState<number | null>(null); // item ID
+  const [uploading, setUploading] = useState(false);
 
   const setStatus = (id: number, status: string) => {
     setItems(items.map(item => item.id === id ? { ...item, status } : item));
   };
 
-  const handlePhoto = (id: number) => {
-    setUploading(id);
+  const initiatePhotoUpload = (id: number) => {
+    setActiveItemId(id);
+    setPhotoDialogOpen(true);
+  };
+
+  const confirmPhotoUpload = () => {
+    if (activeItemId === null) return;
+    
+    setUploading(true);
     setTimeout(() => {
-      setUploading(null);
-      setItems(items.map(item => item.id === id ? { ...item, photo: true } : item));
-      toast({ title: "Photo Uploaded", description: "Image attached to inspection item." });
-    }, 1500);
+      setUploading(false);
+      setItems(items.map(item => item.id === activeItemId ? { ...item, photo: true } : item));
+      setPhotoDialogOpen(false);
+      setActiveItemId(null);
+      toast({ title: "Photo Attached", description: "Image successfully added to inspection report." });
+    }, 1000);
   };
 
   const handleVoice = (id: number) => {
     if (recording === id) {
       setRecording(null);
-      toast({ title: "Voice Note Saved", description: "Audio recording attached." });
+      // Simulate transcription
+      setTimeout(() => {
+         toast({ title: "Voice Note Transcribed", description: "Audio converted to text: 'Technician noted excessive wear...'" });
+      }, 500);
     } else {
       setRecording(id);
     }
@@ -77,7 +95,6 @@ export default function DVI({ params }: { params: { id: string } }) {
     if (!ro) return;
     setSubmitting(true);
     
-    // Simulate API call
     setTimeout(() => {
       updateRepairOrder({ ...ro, dviStatus: "submitted" });
       setSubmitting(false);
@@ -174,10 +191,9 @@ export default function DVI({ params }: { params: { id: string } }) {
                         <Button 
                           variant="outline" 
                           className="flex-1 gap-2 h-10 border-dashed"
-                          onClick={() => handlePhoto(item.id)}
-                          disabled={uploading === item.id}
+                          onClick={() => initiatePhotoUpload(item.id)}
                         >
-                          {uploading === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                          <Camera className="h-4 w-4" />
                           Add Photo
                         </Button>
                         
@@ -191,19 +207,24 @@ export default function DVI({ params }: { params: { id: string } }) {
                         </Button>
                       </div>
                       
-                      <Textarea 
-                        placeholder={`Describe the ${item.category} issue...`} 
-                        className="min-h-[60px] resize-none bg-background"
-                        defaultValue={item.notes}
-                      />
+                      <div className="relative">
+                        <Textarea 
+                          placeholder={`Describe the ${item.category} issue...`} 
+                          className="min-h-[60px] resize-none bg-background pr-10"
+                          defaultValue={item.notes}
+                        />
+                        {recording === item.id && (
+                          <div className="absolute right-2 bottom-2 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                        )}
+                      </div>
                       
                       {/* Mock Photos */}
                       {item.photo && (
                         <div className="flex gap-2 overflow-x-auto pb-1">
-                          <div className="h-20 w-20 bg-gray-800 rounded-md flex items-center justify-center relative shrink-0">
-                            <ImagePlus className="h-6 w-6 text-gray-500" />
-                            <div className="absolute top-1 right-1 h-2 w-2 bg-green-500 rounded-full flex items-center justify-center">
-                              <Check className="h-1.5 w-1.5 text-white" />
+                          <div className="h-20 w-20 bg-gray-800 rounded-md flex items-center justify-center relative shrink-0 group cursor-pointer overflow-hidden">
+                            <img src="https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&q=80&w=200&h=200" alt="Part" className="object-cover w-full h-full opacity-60 group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute top-1 right-1 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+                              <Check className="h-2 w-2 text-white" />
                             </div>
                           </div>
                         </div>
@@ -216,6 +237,31 @@ export default function DVI({ params }: { params: { id: string } }) {
           ))}
         </div>
       </main>
+
+      {/* Mock Photo Upload Dialog */}
+      <Dialog open={photoDialogOpen} onOpenChange={setPhotoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Inspection Photo</DialogTitle>
+            <DialogDescription>Select an image from your device or take a new photo.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 gap-4 py-4">
+             <div className="border-2 border-dashed border-border rounded-lg h-32 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors" onClick={confirmPhotoUpload}>
+                <Camera className="h-8 w-8 text-muted-foreground mb-2" />
+                <span className="text-sm font-medium">Take Photo</span>
+             </div>
+             <div className="border-2 border-dashed border-border rounded-lg h-32 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors" onClick={confirmPhotoUpload}>
+                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                <span className="text-sm font-medium">Upload File</span>
+             </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPhotoDialogOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
