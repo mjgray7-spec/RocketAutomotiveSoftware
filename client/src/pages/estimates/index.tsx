@@ -67,10 +67,14 @@ const INITIAL_JOBS: EstimateJob[] = [
   }
 ];
 
+import { AddJobDialog } from "@/components/modals/AddJobDialog";
+import { VMRSCode } from "@/lib/vmrs-data";
+
 export default function Estimates() {
   const { repairOrders } = useData();
   const [dviOpen, setDviOpen] = useState(true);
   const [jobs, setJobs] = useState<EstimateJob[]>(INITIAL_JOBS);
+  const [addJobOpen, setAddJobOpen] = useState(false);
   
   // Find RO 1025 for this mockup view
   const currentRO = repairOrders.find(ro => ro.id === "1025");
@@ -86,11 +90,15 @@ export default function Estimates() {
     }));
   };
 
-  const handleAddJob = () => {
+  const handleDeleteJob = (jobId: number) => {
+    setJobs(prev => prev.filter(job => job.id !== jobId));
+  };
+
+  const handleAddJob = (vmrs: VMRSCode) => {
     const newJobId = Math.max(0, ...jobs.map(j => j.id)) + 1;
     setJobs(prev => [...prev, {
       id: newJobId,
-      title: `Job ${newJobId}: New Service`,
+      title: `Job ${newJobId}: ${vmrs.description} (${vmrs.code})`,
       lineItems: []
     }]);
   };
@@ -307,9 +315,14 @@ export default function Estimates() {
               {jobs.map((job) => (
                 <div key={job.id} className="space-y-4 mb-8">
                   {/* Job Header */}
-                  <div className="flex items-center gap-2 pb-2 border-b border-border">
-                    <Wrench className="h-4 w-4 text-primary" />
-                    <h3 className="font-bold text-sm uppercase tracking-wide">{job.title}</h3>
+                  <div className="flex items-center justify-between pb-2 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-primary" />
+                      <h3 className="font-bold text-sm uppercase tracking-wide">{job.title}</h3>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteJob(job.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
 
                   {/* Items Table Header */}
@@ -366,7 +379,7 @@ export default function Estimates() {
 
               {/* Add New Job Button */}
               <div className="pt-4 border-t border-border/50">
-                <Button variant="outline" className="w-full h-12 border-dashed" onClick={handleAddJob}>
+                <Button variant="outline" className="w-full h-12 border-dashed" onClick={() => setAddJobOpen(true)}>
                   <Plus className="h-5 w-5 mr-2" /> Add Service Job
                 </Button>
               </div>
@@ -397,6 +410,12 @@ export default function Estimates() {
           </div>
         </Card>
       </div>
+
+      <AddJobDialog 
+        open={addJobOpen} 
+        onOpenChange={setAddJobOpen} 
+        onAddJob={handleAddJob}
+      />
     </Layout>
   );
 }
