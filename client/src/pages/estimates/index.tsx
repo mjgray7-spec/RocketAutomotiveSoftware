@@ -14,8 +14,15 @@ import {
   Send,
   Printer,
   Wrench,
-  Search
+  Search,
+  CheckCircle2,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
+import { useData } from "@/lib/DataContext";
+import { useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const LINE_ITEMS = [
   { id: 1, type: "Labor", description: "Remove and Replace Brake Pads (Front)", quantity: 1.5, rate: "$145.00", total: "$217.50", source: "Motors" },
@@ -26,9 +33,17 @@ const LINE_ITEMS = [
 ];
 
 export default function Estimates() {
+  const { repairOrders } = useData();
+  const [dviOpen, setDviOpen] = useState(true);
+  
+  // Find RO 1025 for this mockup view
+  const currentRO = repairOrders.find(ro => ro.id === "1025");
+  const dviItems = currentRO?.dviItems || [];
+  const attentionItems = dviItems.filter(i => i.status === 'fail' || i.status === 'caution');
+
   return (
     <Layout>
-       <div className="flex h-[calc(100vh-8rem)] gap-6">
+       <div className="flex h-[calc(100vh-6rem)] gap-6">
         {/* Left Pane - List & AI */}
         <div className="w-1/3 flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -51,11 +66,11 @@ export default function Estimates() {
                  {[1, 2, 3].map((item) => (
                    <div key={item} className={`p-4 hover:bg-muted/30 cursor-pointer transition-colors ${item === 1 ? "bg-muted/20 border-l-4 border-l-primary" : ""}`}>
                      <div className="flex justify-between items-start mb-1">
-                       <span className="font-bold text-sm">#{1024 + item} • 2018 Ford F-150</span>
+                       <span className="font-bold text-sm">#{1024 + item} • {item === 2 ? "2021 Tesla Model 3" : "2018 Ford F-150"}</span>
                        <Badge variant="outline" className="text-[10px] scale-90">Open</Badge>
                      </div>
-                     <p className="text-xs text-muted-foreground">John Smith • Brake Job</p>
-                     <p className="text-xs font-bold mt-2">$698.49</p>
+                     <p className="text-xs text-muted-foreground">{item === 2 ? "Sarah Connor" : "John Smith"} • {item === 2 ? "Tire Rotation" : "Brake Job"}</p>
+                     <p className="text-xs font-bold mt-2">{item === 2 ? "$0.00" : "$698.49"}</p>
                    </div>
                  ))}
                </div>
@@ -83,9 +98,9 @@ export default function Estimates() {
         </div>
 
         {/* Right Pane - Estimate Editor */}
-        <Card className="flex-1 border-border/50 flex flex-col shadow-lg overflow-hidden">
+        <Card className="flex-1 border-border/50 flex flex-col shadow-lg overflow-hidden h-full">
           {/* Editor Header */}
-          <div className="p-6 border-b border-border/50 flex justify-between items-start bg-muted/10">
+          <div className="p-6 border-b border-border/50 flex justify-between items-start bg-muted/10 shrink-0">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h2 className="text-2xl font-bold font-display">Estimate #1025</h2>
@@ -107,60 +122,104 @@ export default function Estimates() {
             </div>
           </div>
 
-          {/* Line Items */}
-          <ScrollArea className="flex-1 p-6 bg-card">
-            <div className="space-y-4">
-              {/* Group Header */}
-              <div className="flex items-center gap-2 pb-2 border-b border-border">
-                <Wrench className="h-4 w-4 text-primary" />
-                <h3 className="font-bold text-sm uppercase tracking-wide">Job 1: Brake Service - Front Axle</h3>
-              </div>
-
-              {/* Items Table Header */}
-               <div className="grid grid-cols-12 gap-4 px-2 py-2 text-xs font-medium text-muted-foreground bg-muted/30 rounded-md">
-                 <div className="col-span-1">Type</div>
-                 <div className="col-span-5">Description</div>
-                 <div className="col-span-1 text-center">Qty</div>
-                 <div className="col-span-2 text-right">Rate</div>
-                 <div className="col-span-2 text-right">Total</div>
-                 <div className="col-span-1"></div>
-               </div>
-
-              {/* Items */}
-              <div className="space-y-2">
-                {LINE_ITEMS.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-4 px-2 py-3 items-center text-sm border-b border-border/30 last:border-0 hover:bg-muted/20 rounded-md transition-colors group">
-                    <div className="col-span-1">
-                      <Badge variant="outline" className="text-[10px] h-5">{item.type}</Badge>
+          <ScrollArea className="flex-1 bg-card">
+            <div className="p-6 space-y-6">
+              
+              {/* DVI Integration Section */}
+              {dviItems.length > 0 && (
+                <Collapsible open={dviOpen} onOpenChange={setDviOpen} className="border rounded-lg bg-slate-50 overflow-hidden">
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                      <span className="font-bold text-sm">Inspection Findings (DVI)</span>
+                      <Badge variant="secondary" className="ml-2">{attentionItems.length} Issues Found</Badge>
                     </div>
-                    <div className="col-span-5 font-medium">
-                      {item.description}
-                      <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                         {item.source === "Motors" && <Badge variant="secondary" className="h-4 px-1 text-[9px]">Motors Data</Badge>}
-                         {item.source === "Inventory" && <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-green-500/10 text-green-600">In Stock</Badge>}
+                    {dviOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent>
+                    <div className="p-4 pt-0 grid grid-cols-1 gap-2">
+                      <Separator className="mb-2" />
+                      {attentionItems.length > 0 ? (
+                        attentionItems.map(item => (
+                          <div key={item.id} className="flex items-start gap-3 p-3 bg-white border border-l-4 border-l-red-500 rounded shadow-sm">
+                            <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start">
+                                <span className="font-bold text-sm text-red-700">{item.category}</span>
+                                <Badge variant="outline" className="text-[10px] border-red-200 text-red-700 bg-red-50">{item.status.toUpperCase()}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
+                              <div className="mt-2 flex gap-2">
+                                <Button size="sm" variant="outline" className="h-7 text-xs border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/10">
+                                  <Plus className="h-3 w-3 mr-1" /> Add to Estimate
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground p-2">No attention items found in inspection.</p>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Line Items */}
+              <div className="space-y-4">
+                {/* Group Header */}
+                <div className="flex items-center gap-2 pb-2 border-b border-border">
+                  <Wrench className="h-4 w-4 text-primary" />
+                  <h3 className="font-bold text-sm uppercase tracking-wide">Job 1: Brake Service - Front Axle</h3>
+                </div>
+
+                {/* Items Table Header */}
+                 <div className="grid grid-cols-12 gap-4 px-2 py-2 text-xs font-medium text-muted-foreground bg-muted/30 rounded-md">
+                   <div className="col-span-1">Type</div>
+                   <div className="col-span-5">Description</div>
+                   <div className="col-span-1 text-center">Qty</div>
+                   <div className="col-span-2 text-right">Rate</div>
+                   <div className="col-span-2 text-right">Total</div>
+                   <div className="col-span-1"></div>
+                 </div>
+
+                {/* Items */}
+                <div className="space-y-2">
+                  {LINE_ITEMS.map((item) => (
+                    <div key={item.id} className="grid grid-cols-12 gap-4 px-2 py-3 items-center text-sm border-b border-border/30 last:border-0 hover:bg-muted/20 rounded-md transition-colors group">
+                      <div className="col-span-1">
+                        <Badge variant="outline" className="text-[10px] h-5">{item.type}</Badge>
+                      </div>
+                      <div className="col-span-5 font-medium">
+                        {item.description}
+                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                           {item.source === "Motors" && <Badge variant="secondary" className="h-4 px-1 text-[9px]">Motors Data</Badge>}
+                           {item.source === "Inventory" && <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-green-500/10 text-green-600">In Stock</Badge>}
+                        </div>
+                      </div>
+                      <div className="col-span-1 text-center">{item.quantity}</div>
+                      <div className="col-span-2 text-right text-muted-foreground">{item.rate}</div>
+                      <div className="col-span-2 text-right font-bold">{item.total}</div>
+                      <div className="col-span-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="col-span-1 text-center">{item.quantity}</div>
-                    <div className="col-span-2 text-right text-muted-foreground">{item.rate}</div>
-                    <div className="col-span-2 text-right font-bold">{item.total}</div>
-                    <div className="col-span-1 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              {/* Add Item Button */}
-              <Button variant="ghost" className="w-full border border-dashed border-border/50 text-muted-foreground h-10 hover:bg-muted/50 mt-4">
-                <Plus className="h-4 w-4 mr-2" /> Add Line Item
-              </Button>
+                {/* Add Item Button */}
+                <Button variant="ghost" className="w-full border border-dashed border-border/50 text-muted-foreground h-10 hover:bg-muted/50 mt-4">
+                  <Plus className="h-4 w-4 mr-2" /> Add Line Item
+                </Button>
+              </div>
             </div>
           </ScrollArea>
 
           {/* Footer Totals */}
-          <div className="p-6 border-t border-border bg-muted/10">
+          <div className="p-6 border-t border-border bg-muted/10 shrink-0">
             <div className="flex flex-col items-end gap-2 max-w-xs ml-auto">
               <div className="flex justify-between w-full text-sm">
                 <span className="text-muted-foreground">Parts Total:</span>
