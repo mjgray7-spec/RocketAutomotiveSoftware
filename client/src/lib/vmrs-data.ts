@@ -55,6 +55,13 @@ export const VMRS_DATA: VMRSCode[] = [
     component: "Blade",
     description: "Wiper Blade"
   },
+  {
+    code: "002-010-001",
+    system: "Cab & Sheet Metal",
+    assembly: "Door, Front",
+    component: "Mirror Assembly",
+    description: "Side View Mirror"
+  },
   // 003 - Instruments & Gauges
   {
     code: "003-001-001",
@@ -83,10 +90,22 @@ export const VMRS_DATA: VMRSCode[] = [
 
 // Helper to lookup VMRS by keyword/category
 export function findVMRS(searchTerm: string): VMRSCode | undefined {
+  if (!searchTerm) return undefined;
+  
   const term = searchTerm.toLowerCase();
+  
+  // Try exact matches first
+  const exactMatch = VMRS_DATA.find(item => 
+    item.description.toLowerCase() === term || 
+    item.component.toLowerCase() === term
+  );
+  if (exactMatch) return exactMatch;
+
+  // Try partial matches on description, component, system, or assembly
   return VMRS_DATA.find(item => 
     item.description.toLowerCase().includes(term) || 
-    item.system.toLowerCase().includes(term) ||
-    item.component.toLowerCase().includes(term)
+    item.component.toLowerCase().includes(term) ||
+    item.assembly.toLowerCase().includes(term) ||
+    item.system.toLowerCase().includes(term)
   );
 }

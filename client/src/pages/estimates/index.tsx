@@ -155,7 +155,9 @@ export default function Estimates() {
     const newJobId = Math.max(0, ...jobs.map(j => j.id)) + 1;
     const newJob: EstimateJob = {
       id: newJobId,
-      title: `Job ${newJobId}: ${vmrs ? vmrs.system : item.category} Repair`,
+      title: vmrs 
+        ? `Job ${newJobId}: ${vmrs.description} (VMRS: ${vmrs.code})` 
+        : `Job ${newJobId}: ${item.category} Repair`,
       lineItems: [newLineItem]
     };
 
