@@ -9,9 +9,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Check, X, Filter } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Search, Check, X, Filter, ChevronsUpDown } from "lucide-react";
 import { fuzzySearchVMRS, VMRS_SYSTEMS, VMRS_ASSEMBLIES_BY_SYSTEM, VMRSCode } from "@/lib/vmrs-data";
+import { cn } from "@/lib/utils";
 
 interface AddJobDialogProps {
   open: boolean;
@@ -24,6 +26,8 @@ export function AddJobDialog({ open, onOpenChange, onAddJob }: AddJobDialogProps
   const [selectedVmrs, setSelectedVmrs] = useState<VMRSCode | null>(null);
   const [systemFilter, setSystemFilter] = useState<string>("");
   const [assemblyFilter, setAssemblyFilter] = useState<string>("");
+  const [systemOpen, setSystemOpen] = useState(false);
+  const [assemblyOpen, setAssemblyOpen] = useState(false);
 
   const availableAssemblies = useMemo(() => {
     if (!systemFilter) return [];
@@ -54,12 +58,14 @@ export function AddJobDialog({ open, onOpenChange, onAddJob }: AddJobDialogProps
   };
 
   const handleSystemChange = (value: string) => {
-    setSystemFilter(value === "all" ? "" : value);
+    setSystemFilter(value);
     setAssemblyFilter("");
+    setSystemOpen(false);
   };
 
   const handleAssemblyChange = (value: string) => {
-    setAssemblyFilter(value === "all" ? "" : value);
+    setAssemblyFilter(value);
+    setAssemblyOpen(false);
   };
 
   const clearFilters = () => {
@@ -97,40 +103,119 @@ export function AddJobDialog({ open, onOpenChange, onAddJob }: AddJobDialogProps
             <div className="flex gap-2 items-center">
               <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
               
-              <Select value={systemFilter || "all"} onValueChange={handleSystemChange}>
-                <SelectTrigger className="flex-1" data-testid="select-system-filter">
-                  <SelectValue placeholder="Filter by System" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Systems</SelectItem>
-                  {VMRS_SYSTEMS.map(system => (
-                    <SelectItem key={system} value={system} className="text-xs">
-                      {system}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* System Filter Combobox */}
+              <Popover open={systemOpen} onOpenChange={setSystemOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={systemOpen}
+                    className="flex-1 justify-between text-left font-normal"
+                    data-testid="select-system-filter"
+                  >
+                    <span className="truncate">
+                      {systemFilter || "Filter by System"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search systems..." />
+                    <CommandList>
+                      <CommandEmpty>No system found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value=""
+                          onSelect={() => handleSystemChange("")}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              !systemFilter ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          All Systems
+                        </CommandItem>
+                        {VMRS_SYSTEMS.map((system) => (
+                          <CommandItem
+                            key={system}
+                            value={system}
+                            onSelect={() => handleSystemChange(system)}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                systemFilter === system ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <span className="text-xs">{system}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
-              <Select 
-                value={assemblyFilter || "all"} 
-                onValueChange={handleAssemblyChange}
-                disabled={!systemFilter}
-              >
-                <SelectTrigger className="flex-1" data-testid="select-assembly-filter">
-                  <SelectValue placeholder={systemFilter ? "Filter by Assembly" : "Select System first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Assemblies</SelectItem>
-                  {availableAssemblies.map(assembly => (
-                    <SelectItem key={assembly} value={assembly} className="text-xs">
-                      {assembly}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Assembly Filter Combobox */}
+              <Popover open={assemblyOpen} onOpenChange={setAssemblyOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={assemblyOpen}
+                    className="flex-1 justify-between text-left font-normal"
+                    disabled={!systemFilter}
+                    data-testid="select-assembly-filter"
+                  >
+                    <span className="truncate">
+                      {assemblyFilter || (systemFilter ? "Filter by Assembly" : "Select System first")}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search assemblies..." />
+                    <CommandList>
+                      <CommandEmpty>No assembly found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value=""
+                          onSelect={() => handleAssemblyChange("")}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              !assemblyFilter ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          All Assemblies
+                        </CommandItem>
+                        {availableAssemblies.map((assembly) => (
+                          <CommandItem
+                            key={assembly}
+                            value={assembly}
+                            onSelect={() => handleAssemblyChange(assembly)}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                assemblyFilter === assembly ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <span className="text-xs">{assembly}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
               {hasFilters && (
-                <Button variant="ghost" size="icon" onClick={clearFilters} className="shrink-0">
+                <Button variant="ghost" size="icon" onClick={clearFilters} className="shrink-0" data-testid="button-clear-filters">
                   <X className="h-4 w-4" />
                 </Button>
               )}
@@ -184,7 +269,7 @@ export function AddJobDialog({ open, onOpenChange, onAddJob }: AddJobDialogProps
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>Cancel</Button>
+          <Button variant="outline" onClick={handleClose} data-testid="button-cancel-job">Cancel</Button>
           <Button onClick={handleConfirm} disabled={!selectedVmrs} data-testid="button-add-job-confirm">Add Job</Button>
         </DialogFooter>
       </DialogContent>

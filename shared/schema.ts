@@ -230,3 +230,26 @@ export const estimateLineItemsRelations = relations(estimateLineItems, ({ one })
     references: [estimateJobs.id],
   }),
 }));
+
+// Inventory / Parts table
+export const inventory = pgTable("inventory", {
+  id: serial("id").primaryKey(),
+  partNumber: text("part_number").notNull(),
+  description: text("description").notNull(),
+  brand: text("brand"),
+  category: text("category"),
+  cost: decimal("cost", { precision: 10, scale: 2 }).notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  quantityOnHand: integer("quantity_on_hand").default(0),
+  reorderLevel: integer("reorder_level").default(5),
+  location: text("location"),
+  vmrsCode: text("vmrs_code"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertInventorySchema = createInsertSchema(inventory).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertInventory = z.infer<typeof insertInventorySchema>;
+export type InventoryItem = typeof inventory.$inferSelect;

@@ -9,9 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wrench, Package, Clock, DollarSign, Loader2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Wrench, Package, Clock, DollarSign, Loader2, Search, Check } from "lucide-react";
+import type { InventoryItem } from "@shared/schema";
 
 interface LineItem {
   id: number;
@@ -40,6 +41,12 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
   const [rate, setRate] = useState(LABOR_RATE.toFixed(2));
   const [isLookingUpLabor, setIsLookingUpLabor] = useState(false);
   const [laborLookupResult, setLaborLookupResult] = useState<{ hours: number; source: string } | null>(null);
+  
+  // Part search state
+  const [partSearch, setPartSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedPart, setSelectedPart] = useState<InventoryItem | null>(null);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -49,8 +56,64 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
       setQuantity("1");
       setRate(LABOR_RATE.toFixed(2));
       setLaborLookupResult(null);
+      setPartSearch("");
+      setSearchResults([]);
+      setSelectedPart(null);
     }
   }, [open]);
+
+  // Search inventory when typing
+  useEffect(() => {
+    const searchInventory = async () => {
+      if (partSearch.length < 2) {
+        // Show initial results when no search
+        try {
+          const response = await fetch(`/api/inventory/search?q=`);
+          if (response.ok) {
+            const data = await response.json();
+            setSearchResults(data);
+          }
+        } catch (error) {
+          console.error("Failed to load inventory:", error);
+        }
+        return;
+      }
+      
+      setIsSearching(true);
+      try {
+        const response = await fetch(`/api/inventory/search?q=${encodeURIComponent(partSearch)}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data);
+        }
+      } catch (error) {
+        console.error("Failed to search inventory:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const debounce = setTimeout(searchInventory, 300);
+    return () => clearTimeout(debounce);
+  }, [partSearch]);
+
+  // Load initial inventory when Part tab is selected
+  useEffect(() => {
+    if (itemType === "Part" && searchResults.length === 0) {
+      const loadInitialInventory = async () => {
+        try {
+          const response = await fetch(`/api/inventory/search?q=`);
+          if (response.ok) {
+            const data = await response.json();
+            setSearchResults(data);
+          }
+        } catch (error) {
+          console.error("Failed to load inventory:", error);
+        }
+      };
+      loadInitialInventory();
+    }
+  }, [itemType]);
 
   // Lookup labor time from Motors API when VMRS code is available
   const lookupLaborTime = async () => {
@@ -84,13 +147,20 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
 
   const handleSubmit = () => {
     const total = calculateTotal();
+    let source = "Manual";
+    if (itemType === "Labor" && laborLookupResult) {
+      source = laborLookupResult.source;
+    } else if (itemType === "Part" && selectedPart) {
+      source = "Inventory";
+    }
+    
     onAddLineItem({
       type: itemType,
       description: description || `${itemType} Item`,
       quantity: parseFloat(quantity) || 1,
       rate: `$${parseFloat(rate).toFixed(2)}`,
       total: `$${total}`,
-      source: laborLookupResult ? laborLookupResult.source : "Manual",
+      source,
       vmrsCode: jobVmrsCode,
     });
     onOpenChange(false);
@@ -104,16 +174,26 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
       setRate("0.00");
     }
     setLaborLookupResult(null);
+    setSelectedPart(null);
+    setDescription("");
+    setQuantity("1");
+  };
+
+  const handleSelectPart = (part: InventoryItem) => {
+    setSelectedPart(part);
+    setDescription(`${part.partNumber} - ${part.description}`);
+    setRate(part.price);
+    setQuantity("1");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Add Line Item</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
           {/* Item Type Tabs */}
           <Tabs value={itemType} onValueChange={(v) => handleTypeChange(v as "Labor" | "Part" | "Fee")} data-testid="tabs-line-item-type">
             <TabsList className="grid w-full grid-cols-3">
@@ -210,14 +290,82 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
               )}
             </TabsContent>
 
-            <TabsContent value="Part" className="space-y-4 mt-4">
+            <TabsContent value="Part" className="space-y-4 mt-4 flex-1 overflow-hidden flex flex-col">
+              {/* Part Search */}
               <div className="space-y-2">
-                <Label htmlFor="part-description">Part Description</Label>
+                <Label>Search Inventory</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by part number, description, brand..."
+                    className="pl-9"
+                    value={partSearch}
+                    onChange={(e) => setPartSearch(e.target.value)}
+                    data-testid="input-part-search"
+                  />
+                  {isSearching && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+
+              {/* Search Results */}
+              <div className="border rounded-md flex-1 min-h-[150px]">
+                <ScrollArea className="h-[150px]">
+                  <div className="divide-y divide-border">
+                    {searchResults.length > 0 ? (
+                      searchResults.map((part) => (
+                        <div 
+                          key={part.id}
+                          data-testid={`part-option-${part.id}`}
+                          className={`p-2 cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between ${selectedPart?.id === part.id ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
+                          onClick={() => handleSelectPart(part)}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold bg-muted px-1.5 py-0.5 rounded">{part.partNumber}</span>
+                              <span className="text-sm truncate">{part.description}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {part.brand && <span>{part.brand} • </span>}
+                              <span className="text-green-600 font-medium">${part.price}</span>
+                              {part.quantityOnHand !== null && (
+                                <span className="ml-2">({part.quantityOnHand} in stock)</span>
+                              )}
+                            </div>
+                          </div>
+                          {selectedPart?.id === part.id && (
+                            <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-muted-foreground text-sm">
+                        {partSearch ? "No parts found matching your search" : "No parts in inventory yet"}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Selected Part Info */}
+              {selectedPart && (
+                <div className="bg-muted/50 p-3 rounded-md">
+                  <p className="text-xs text-muted-foreground">Selected: <span className="font-medium text-foreground">{selectedPart.partNumber}</span></p>
+                </div>
+              )}
+
+              {/* Manual Entry Option */}
+              <div className="space-y-2">
+                <Label htmlFor="part-description">Or Enter Part Manually</Label>
                 <Input 
                   id="part-description"
                   placeholder="e.g., Brake Pads - Front Set"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    setSelectedPart(null);
+                  }}
                   data-testid="input-part-description"
                 />
               </div>
@@ -291,12 +439,12 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
           {/* Total Preview */}
           <div className="bg-primary/5 p-4 rounded-md flex justify-between items-center">
             <span className="font-medium">Line Total:</span>
-            <span className="text-xl font-bold text-primary">${calculateTotal()}</span>
+            <span className="text-xl font-bold text-primary" data-testid="text-line-total">${calculateTotal()}</span>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-line-item">Cancel</Button>
           <Button onClick={handleSubmit} data-testid="button-add-line-item">Add Item</Button>
         </DialogFooter>
       </DialogContent>

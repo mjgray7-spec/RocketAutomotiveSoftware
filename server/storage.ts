@@ -8,6 +8,7 @@ import {
   estimates,
   estimateJobs,
   estimateLineItems,
+  inventory,
   type User, 
   type InsertUser,
   type Customer,
@@ -26,9 +27,11 @@ import {
   type InsertEstimateJob,
   type EstimateLineItem,
   type InsertEstimateLineItem,
+  type InventoryItem,
+  type InsertInventory,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, ilike, or, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -76,6 +79,13 @@ export interface IStorage {
   getLineItemsByJob(jobId: number): Promise<EstimateLineItem[]>;
   createEstimateLineItem(item: InsertEstimateLineItem): Promise<EstimateLineItem>;
   deleteEstimateLineItem(id: number): Promise<void>;
+
+  // Inventory
+  getInventory(): Promise<InventoryItem[]>;
+  searchInventory(searchTerm: string): Promise<InventoryItem[]>;
+  getInventoryItem(id: number): Promise<InventoryItem | undefined>;
+  createInventoryItem(item: InsertInventory): Promise<InventoryItem>;
+  updateInventoryItem(id: number, item: Partial<InsertInventory>): Promise<InventoryItem | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -220,6 +230,46 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEstimateLineItem(id: number): Promise<void> {
     await db.delete(estimateLineItems).where(eq(estimateLineItems.id, id));
+  }
+
+  // Inventory
+  async getInventory(): Promise<InventoryItem[]> {
+    return await db.select().from(inventory).orderBy(inventory.description);
+  }
+
+  async searchInventory(searchTerm: string): Promise<InventoryItem[]> {
+    if (!searchTerm || searchTerm.length < 2) {
+      return await db.select().from(inventory).orderBy(inventory.description).limit(50);
+    }
+    const pattern = `%${searchTerm}%`;
+    return await db
+      .select()
+      .from(inventory)
+      .where(
+        or(
+          ilike(inventory.partNumber, pattern),
+          ilike(inventory.description, pattern),
+          ilike(inventory.brand, pattern),
+          ilike(inventory.category, pattern)
+        )
+      )
+      .orderBy(inventory.description)
+      .limit(100);
+  }
+
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    const [item] = await db.select().from(inventory).where(eq(inventory.id, id));
+    return item || undefined;
+  }
+
+  async createInventoryItem(item: InsertInventory): Promise<InventoryItem> {
+    const [newItem] = await db.insert(inventory).values(item).returning();
+    return newItem;
+  }
+
+  async updateInventoryItem(id: number, item: Partial<InsertInventory>): Promise<InventoryItem | undefined> {
+    const [updated] = await db.update(inventory).set(item).where(eq(inventory.id, id)).returning();
+    return updated || undefined;
   }
 }
 
