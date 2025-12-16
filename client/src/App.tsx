@@ -17,6 +17,7 @@ import Financials from "@/pages/financials/index";
 import Estimates from "@/pages/estimates/index";
 import TechnicianDashboard from "@/pages/technician/index";
 import DVI from "@/pages/technician/dvi";
+import JobExecution from "@/pages/technician/job"; // Import New Job Page
 
 function Router() {
   return (
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/estimates" component={Estimates} />
       <Route path="/technician" component={TechnicianDashboard} />
       <Route path="/technician/dvi/:id" component={DVI} />
+      <Route path="/technician/job/:id" component={JobExecution} /> {/* New Route */}
       {/* Add more routes as we build them */}
       <Route component={NotFound} />
     </Switch>

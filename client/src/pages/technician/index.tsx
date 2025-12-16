@@ -1,6 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useData } from "@/lib/DataContext";
-import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,53 +13,54 @@ import {
   Play, 
   Pause,
   ChevronRight,
-  LogOut
+  LogOut,
+  Wrench
 } from "lucide-react";
 import { Link } from "wouter";
 
-// Helper to parse time strings for sorting (simple version)
-const parseTime = (timeStr: string) => {
-  if (!timeStr) return 9999;
-  if (timeStr.includes("Tomorrow")) return 2000;
-  if (timeStr.includes("Done")) return 3000;
-  
-  // Simple parser for "08:00 AM" format
-  const [time, period] = timeStr.split(" ");
-  if (!time || !period) return 1000;
-  
-  let [hours, minutes] = time.split(":").map(Number);
-  if (period === "PM" && hours !== 12) hours += 12;
-  if (period === "AM" && hours === 12) hours = 0;
-  
-  return hours * 60 + minutes;
+// Helper to format seconds to HH:MM:SS
+const formatTime = (seconds: number) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 export default function TechnicianDashboard() {
-  const { repairOrders } = useData();
+  const { repairOrders, toggleTimer, updateTimer } = useData();
   
-  // 1. Filter jobs for current tech (mocked as "Mike T.")
-  // 2. Sort by time
   const myJobs = useMemo(() => {
     return repairOrders
       .filter(ro => ro.tech === "Mike T." && ro.status !== "completed")
-      .sort((a, b) => parseTime(a.due) - parseTime(b.due));
+      .sort((a, b) => (a.due || "").localeCompare(b.due || ""));
   }, [repairOrders]);
 
   const [activeJobId, setActiveJobId] = useState<string | null>(
     myJobs.length > 0 ? myJobs[0].id : null
   );
 
-  // If active job is completed or removed, switch to next available
-  if (activeJobId && !myJobs.find(j => j.id === activeJobId) && myJobs.length > 0) {
-    setActiveJobId(myJobs[0].id);
-  }
+  // Sync active job if list changes
+  useEffect(() => {
+    if (!activeJobId && myJobs.length > 0) setActiveJobId(myJobs[0].id);
+  }, [myJobs]);
 
   const activeJob = myJobs.find(j => j.id === activeJobId) || myJobs[0];
   const upNextJobs = myJobs.filter(j => j.id !== activeJob?.id);
 
+  // Timer Tick Effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (activeJob?.timer?.running) {
+      interval = setInterval(() => {
+        // Just increment for visual effect in mockup, in real app sync with server time
+        updateTimer(activeJob.id, (activeJob.timer?.elapsed || 0) + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [activeJob?.timer?.running, activeJob?.id]);
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
-      {/* Tech Header - Simplified for Tablet */}
       <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center font-bold text-white font-display">
@@ -69,16 +69,12 @@ export default function TechnicianDashboard() {
           <div>
             <h1 className="font-bold text-lg leading-tight">Mike Technician</h1>
             <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              Clocked In (07:58 AM)
+              <span className={`h-2 w-2 rounded-full ${activeJob?.timer?.running ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+              {activeJob?.timer?.running ? "Clocked In" : "Idle"}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden md:block text-right">
-            <div className="text-xs text-muted-foreground">Efficiency</div>
-            <div className="font-bold text-green-500">112%</div>
-          </div>
           <Button variant="outline" size="sm" asChild>
              <Link href="/">Exit Tech Mode</Link>
           </Button>
@@ -92,8 +88,10 @@ export default function TechnicianDashboard() {
           <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Current Job</h2>
           
           {activeJob ? (
-            <Card className="border-primary/50 shadow-lg shadow-primary/10 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+            <Card className={`border-primary/50 shadow-lg shadow-primary/10 relative overflow-hidden transition-all ${activeJob.timer?.running ? "ring-2 ring-green-500/50" : ""}`}>
+              {activeJob.timer?.running && (
+                 <div className="absolute top-0 left-0 w-full h-1 bg-green-500 animate-pulse" />
+              )}
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row justify-between gap-6">
                   <div className="space-y-4 flex-1">
@@ -120,24 +118,41 @@ export default function TechnicianDashboard() {
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span>Job Progress</span>
-                        <span>45%</span>
-                      </div>
-                      <Progress value={45} className="h-3" />
+                    <div className="flex items-center gap-4 bg-muted/30 p-3 rounded-lg border border-border/50">
+                       <div className="text-2xl font-mono font-bold w-32">
+                         {formatTime(activeJob.timer?.elapsed || 0)}
+                       </div>
+                       <div className="text-xs text-muted-foreground">
+                         Billable Time
+                       </div>
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-3 justify-center min-w-[200px]">
-                    <Button size="lg" className="h-14 text-lg bg-red-500 hover:bg-red-600 text-white gap-2">
-                      <Pause className="h-6 w-6 fill-current" /> Stop Timer
+                    <Button 
+                      size="lg" 
+                      className={`h-14 text-lg gap-2 ${activeJob.timer?.running ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"} text-white`}
+                      onClick={() => toggleTimer(activeJob.id)}
+                    >
+                      {activeJob.timer?.running ? (
+                        <> <Pause className="h-6 w-6 fill-current" /> Stop Timer </>
+                      ) : (
+                        <> <Play className="h-6 w-6 fill-current" /> Start Timer </>
+                      )}
                     </Button>
-                    <Button size="lg" variant="secondary" className="h-14 text-lg gap-2" asChild>
-                      <Link href={`/technician/dvi/${activeJob.id}`}>
-                         <Camera className="h-6 w-6" /> Resume DVI
-                      </Link>
-                    </Button>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button size="lg" variant="secondary" className="h-12 text-sm gap-2" asChild>
+                        <Link href={`/technician/dvi/${activeJob.id}`}>
+                            <Camera className="h-4 w-4" /> DVI
+                        </Link>
+                        </Button>
+                        <Button size="lg" variant="secondary" className="h-12 text-sm gap-2 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20" asChild>
+                        <Link href={`/technician/job/${activeJob.id}`}>
+                            <Wrench className="h-4 w-4" /> Job
+                        </Link>
+                        </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -186,18 +201,6 @@ export default function TechnicianDashboard() {
             </div>
           </section>
         )}
-
-        {/* Quick Actions */}
-        <section className="grid grid-cols-2 gap-4">
-          <Button variant="outline" className="h-24 flex flex-col gap-2 border-dashed">
-            <AlertCircle className="h-8 w-8 text-orange-500" />
-            <span>Report Issue</span>
-          </Button>
-           <Button variant="outline" className="h-24 flex flex-col gap-2 border-dashed">
-            <CheckCircle2 className="h-8 w-8 text-green-500" />
-            <span>Mark All Complete</span>
-          </Button>
-        </section>
       </main>
     </div>
   );
