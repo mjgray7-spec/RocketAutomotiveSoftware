@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { useData } from "@/lib/DataContext";
+import { useData, InspectionItem } from "@/lib/DataContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,14 +20,6 @@ import {
   Upload
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-interface InspectionItem {
-  id: number;
-  category: string;
-  status: string;
-  notes?: string;
-  photo?: boolean;
-}
 
 const INSPECTION_ITEMS: InspectionItem[] = [
   { id: 1, category: "Wiper Blades", status: "good" },
@@ -96,7 +88,7 @@ export default function DVI({ params }: { params: { id: string } }) {
     setSubmitting(true);
     
     setTimeout(() => {
-      updateRepairOrder({ ...ro, dviStatus: "submitted" });
+      updateRepairOrder({ ...ro, dviStatus: "submitted", dviItems: items });
       setSubmitting(false);
       toast({ title: "DVI Submitted", description: "Inspection report sent to advisor." });
       setLocation("/technician");

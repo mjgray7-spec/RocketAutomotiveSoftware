@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 // Types
+export interface InspectionItem {
+  id: number;
+  category: string;
+  status: string;
+  notes?: string;
+  photo?: boolean;
+}
+
 export interface ServiceItem {
   id: string;
   description: string;
@@ -30,6 +38,7 @@ export interface RepairOrder {
     elapsed: number; // in seconds
   };
   lineItems?: ServiceItem[];
+  dviItems?: InspectionItem[]; // New Field for DVI Data
 }
 
 // Initial Mock Data

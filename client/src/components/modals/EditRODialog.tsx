@@ -36,8 +36,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Package,
-  FileText
+  FileText,
+  Image as ImageIcon
 } from "lucide-react";
+import { InspectionItem } from "@/lib/DataContext";
 
 // Updated Interface to Match Global Context
 interface ServiceItem {
@@ -60,6 +62,7 @@ interface ROData {
   notes?: string;
   bay?: string;
   dviStatus?: string;
+  dviItems?: InspectionItem[];
   lineItems?: ServiceItem[];
 }
 
@@ -160,6 +163,7 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
               <TabsList className="bg-transparent h-10 p-0 space-x-6">
                 <TabsTrigger value="details" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-2">Details & Assignment</TabsTrigger>
                 <TabsTrigger value="services" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-2">Services & Tasks</TabsTrigger>
+                <TabsTrigger value="inspection" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-2">Inspection (DVI)</TabsTrigger>
                 <TabsTrigger value="history" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 pb-2">History & Notes</TabsTrigger>
               </TabsList>
             </div>
@@ -308,6 +312,52 @@ export function EditRODialog({ open, onOpenChange, roData, onSave }: EditRODialo
                   </div>
                 </div>
               </TabsContent>
+
+               <TabsContent value="inspection" className="mt-0">
+                 {formData.dviItems && formData.dviItems.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="space-y-4">
+                          <h3 className="font-bold text-sm uppercase tracking-wider text-red-500">Attention Needed</h3>
+                          {formData.dviItems.filter(i => i.status === 'fail' || i.status === 'caution').map(item => (
+                             <div key={item.id} className="border border-l-4 border-l-red-500 rounded-lg p-3 bg-red-500/5">
+                                <div className="flex justify-between items-start mb-2">
+                                   <span className="font-bold">{item.category}</span>
+                                   <Badge variant={item.status === 'fail' ? "destructive" : "outline"} className={item.status === 'caution' ? "text-yellow-600 border-yellow-400 bg-yellow-100" : ""}>
+                                     {item.status.toUpperCase()}
+                                   </Badge>
+                                </div>
+                                {item.notes && <p className="text-sm text-muted-foreground mb-2">{item.notes}</p>}
+                                {item.photo && (
+                                   <div className="flex items-center gap-2 text-xs text-blue-500 font-medium cursor-pointer hover:underline">
+                                      <ImageIcon className="h-3 w-3" /> View Photo
+                                   </div>
+                                )}
+                             </div>
+                          ))}
+                          {formData.dviItems.filter(i => i.status === 'fail' || i.status === 'caution').length === 0 && (
+                            <p className="text-sm text-muted-foreground italic">No issues found.</p>
+                          )}
+                       </div>
+                       
+                       <div className="space-y-4">
+                          <h3 className="font-bold text-sm uppercase tracking-wider text-green-500">Passed Inspection</h3>
+                          <div className="grid grid-cols-1 gap-2">
+                             {formData.dviItems.filter(i => i.status === 'good').map(item => (
+                                <div key={item.id} className="flex items-center justify-between p-2 border rounded-lg bg-green-500/5 border-green-200">
+                                   <span className="text-sm font-medium">{item.category}</span>
+                                   <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                </div>
+                             ))}
+                          </div>
+                       </div>
+                    </div>
+                 ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                       <AlertTriangle className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                       <p>No inspection data available yet.</p>
+                    </div>
+                 )}
+               </TabsContent>
 
                <TabsContent value="history" className="mt-0">
                   <div className="space-y-4">
