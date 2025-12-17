@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Wrench, Package, Clock, DollarSign, Loader2, Search, Check, Truck, Store, ExternalLink } from "lucide-react";
+import { Wrench, Package, Clock, DollarSign, Loader2, Search, Check, Truck, Store, ExternalLink, MapPin } from "lucide-react";
 import type { InventoryItem } from "@shared/schema";
 
 interface LineItem {
@@ -273,7 +273,7 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
           <DialogTitle>Add Line Item</DialogTitle>
         </DialogHeader>
         
-        <ScrollArea className="flex-1 max-h-[60vh] pr-4">
+        <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 200px)' }}>
           <div className="space-y-4">
           {/* Item Type Tabs */}
           <Tabs value={itemType} onValueChange={(v) => handleTypeChange(v as "Labor" | "Part" | "Fee")} data-testid="tabs-line-item-type">
@@ -399,8 +399,7 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
                   </Label>
                   <span className="text-xs text-muted-foreground">{searchResults.length} items</span>
                 </div>
-                <div className="border rounded-md">
-                  <ScrollArea className="h-[100px]">
+                <div className="border rounded-md max-h-[120px] overflow-y-auto">
                     <div className="divide-y divide-border">
                       {searchResults.length > 0 ? (
                         searchResults.map((part) => (
@@ -434,7 +433,6 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
                         </div>
                       )}
                     </div>
-                  </ScrollArea>
                 </div>
               </div>
 
@@ -468,55 +466,64 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
                       <Truck className="h-4 w-4" />
                       Available from Vendors
                     </Label>
-                    <span className="text-xs text-muted-foreground">{vendorResults.length} items</span>
+                    <span className="text-xs text-muted-foreground">{vendorResults.length} results</span>
                   </div>
-                  <div className="border rounded-md border-blue-200 bg-blue-50/30">
-                    <ScrollArea className="h-[140px]">
-                      <div className="divide-y divide-border">
-                        {vendorResults.length > 0 ? (
-                          vendorResults.map((part) => (
-                            <div 
-                              key={part.id}
-                              data-testid={`vendor-part-option-${part.id}`}
-                              className={`p-2 cursor-pointer hover:bg-blue-100/50 transition-colors ${selectedVendorPart?.id === part.id ? "bg-blue-100 border-l-4 border-l-blue-500" : ""}`}
-                              onClick={() => handleSelectVendorPart(part)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <Badge variant="outline" className="text-xs bg-white">{part.vendorName}</Badge>
-                                    <span className="font-mono text-xs font-bold">{part.partNumber}</span>
-                                  </div>
-                                  <p className="text-sm truncate mt-1">{part.description}</p>
-                                  <div className="flex items-center gap-3 text-xs mt-1">
-                                    <span className="text-muted-foreground">{part.brand}</span>
-                                    <span className="text-green-600 font-bold">${part.price.toFixed(2)}</span>
-                                    <span className="text-blue-600">{part.quantityAvailable} avail</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs text-orange-600 mt-1">
-                                    <Clock className="h-3 w-3" />
-                                    <span>{part.etaDisplay}</span>
-                                    <span className="text-muted-foreground">({part.distanceMiles} mi)</span>
-                                  </div>
+                  <div className="border rounded-md border-blue-200 bg-blue-50/30 max-h-[220px] overflow-y-auto">
+                    {vendorResults.length > 0 ? (
+                      <div className="divide-y divide-blue-200">
+                        {vendorResults.map((part) => (
+                          <div 
+                            key={part.id}
+                            data-testid={`vendor-part-option-${part.id}`}
+                            className={`p-3 cursor-pointer hover:bg-blue-100/50 transition-colors ${selectedVendorPart?.id === part.id ? "bg-blue-100 border-l-4 border-l-blue-600" : ""}`}
+                            onClick={() => handleSelectVendorPart(part)}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge className="text-xs bg-blue-600 text-white">{part.vendorName}</Badge>
+                                  <span className="font-mono text-xs font-bold bg-white px-1.5 py-0.5 rounded">{part.partNumber}</span>
                                 </div>
-                                {selectedVendorPart?.id === part.id && (
-                                  <Check className="h-4 w-4 text-blue-500 shrink-0 ml-2" />
-                                )}
+                                <p className="text-sm font-medium">{part.description}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{part.brand}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-lg font-bold text-green-600">${part.price.toFixed(2)}</p>
+                                <p className="text-xs text-blue-600 font-medium">{part.quantityAvailable} in stock</p>
                               </div>
                             </div>
-                          ))
-                        ) : isSearchingVendors ? (
-                          <div className="p-4 text-center">
-                            <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                            <p className="text-sm text-muted-foreground mt-2">Searching vendors...</p>
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-200/50">
+                              <div className="flex items-center gap-1 text-xs">
+                                <MapPin className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-muted-foreground">{part.warehouseLocation}</span>
+                                <span className="text-muted-foreground">({part.distanceMiles} miles)</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs font-medium text-orange-600">
+                                <Clock className="h-3 w-3" />
+                                <span>{part.etaDisplay}</span>
+                              </div>
+                            </div>
+                            {selectedVendorPart?.id === part.id && (
+                              <div className="mt-2 flex items-center gap-1 text-xs text-blue-600 font-medium">
+                                <Check className="h-4 w-4" />
+                                Selected
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="p-3 text-center text-muted-foreground text-sm">
-                            No parts found from external vendors
-                          </div>
-                        )}
+                        ))}
                       </div>
-                    </ScrollArea>
+                    ) : isSearchingVendors ? (
+                      <div className="p-6 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" />
+                        <p className="text-sm text-muted-foreground mt-2">Searching O'Reilly, NAPA, AutoZone, and more...</p>
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center">
+                        <Truck className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                        <p className="text-sm text-muted-foreground">No parts found from external vendors</p>
+                        <p className="text-xs text-muted-foreground mt-1">Try a different search term</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -621,7 +628,7 @@ export function AddLineItemDialog({ open, onOpenChange, onAddLineItem, jobVmrsCo
             </TabsContent>
           </Tabs>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Total Preview - Pinned at bottom */}
         <div className="bg-primary/5 p-4 rounded-md flex justify-between items-center mt-4 shrink-0">
