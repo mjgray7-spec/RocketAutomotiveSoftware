@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EditRODialog } from "@/components/modals/EditRODialog";
+import NewRepairOrderDialog from "@/components/modals/NewRepairOrderDialog";
 import { useData } from "@/lib/DataContext"; // Use Context
 import { 
   Search, 
@@ -29,6 +30,7 @@ export default function RepairOrders() {
   const { repairOrders, updateRepairOrder } = useData(); // Use Global Data
   const [editOpen, setEditOpen] = useState(false);
   const [selectedRO, setSelectedRO] = useState<any>(null);
+  const [newROOpen, setNewROOpen] = useState(false);
 
   const handleJobClick = (ro: any) => {
     setSelectedRO(ro);
@@ -47,6 +49,10 @@ export default function RepairOrders() {
         roData={selectedRO}
         onSave={handleSaveRO}
       />
+      <NewRepairOrderDialog 
+        open={newROOpen}
+        onOpenChange={setNewROOpen}
+      />
 
       <div className="flex flex-col h-[calc(100vh-8rem)] gap-6">
         {/* Header */}
@@ -63,7 +69,11 @@ export default function RepairOrders() {
             <Button variant="outline" size="icon">
               <Filter className="h-4 w-4" />
             </Button>
-            <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
+            <Button 
+              className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
+              onClick={() => setNewROOpen(true)}
+              data-testid="button-new-ro"
+            >
               <Plus className="mr-2 h-4 w-4" /> New RO
             </Button>
           </div>

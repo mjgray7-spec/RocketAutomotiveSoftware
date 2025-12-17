@@ -31,7 +31,7 @@ import {
   type InsertInventory,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, ilike, or, sql } from "drizzle-orm";
+import { eq, desc, ilike, or, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -44,9 +44,11 @@ export interface IStorage {
   getCustomer(id: number): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
+  searchCustomersWithVehicles(searchTerm: string): Promise<Array<{ customer: Customer; vehicles: Vehicle[] }>>;
 
   // Vehicles
   getVehiclesByCustomer(customerId: number): Promise<Vehicle[]>;
+  getAllVehicles(): Promise<Vehicle[]>;
   getVehicle(id: number): Promise<Vehicle | undefined>;
   createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
 
@@ -125,9 +127,65 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
+  async searchCustomersWithVehicles(searchTerm: string): Promise<Array<{ customer: Customer; vehicles: Vehicle[] }>> {
+    if (!searchTerm || searchTerm.trim().length < 2) {
+      return [];
+    }
+    const term = `%${searchTerm.trim()}%`;
+    
+    // Search customers by name, phone, or email
+    const matchedCustomers = await db.select().from(customers).where(
+      or(
+        ilike(customers.name, term),
+        ilike(customers.phone, term),
+        ilike(customers.email, term)
+      )
+    );
+    
+    // Search vehicles by VIN
+    const matchedVehicles = await db.select().from(vehicles).where(
+      ilike(vehicles.vin, term)
+    );
+    
+    // Get customer IDs from matched vehicles
+    const customerIdsFromVehicles = matchedVehicles.map(v => v.customerId);
+    
+    // Get customers for those vehicles using proper inArray
+    let vehicleCustomers: Customer[] = [];
+    if (customerIdsFromVehicles.length > 0) {
+      vehicleCustomers = await db.select().from(customers).where(
+        inArray(customers.id, customerIdsFromVehicles)
+      );
+    }
+    
+    // Merge and deduplicate customers
+    const allCustomerIds = new Set<number>();
+    const allCustomers: Customer[] = [];
+    
+    for (const c of [...matchedCustomers, ...vehicleCustomers]) {
+      if (!allCustomerIds.has(c.id)) {
+        allCustomerIds.add(c.id);
+        allCustomers.push(c);
+      }
+    }
+    
+    // Get vehicles for each customer
+    const results: Array<{ customer: Customer; vehicles: Vehicle[] }> = [];
+    for (const customer of allCustomers) {
+      const customerVehicles = await db.select().from(vehicles).where(eq(vehicles.customerId, customer.id));
+      results.push({ customer, vehicles: customerVehicles });
+    }
+    
+    return results;
+  }
+
   // Vehicles
   async getVehiclesByCustomer(customerId: number): Promise<Vehicle[]> {
     return await db.select().from(vehicles).where(eq(vehicles.customerId, customerId));
+  }
+
+  async getAllVehicles(): Promise<Vehicle[]> {
+    return await db.select().from(vehicles);
   }
 
   async getVehicle(id: number): Promise<Vehicle | undefined> {

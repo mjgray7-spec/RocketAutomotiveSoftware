@@ -72,6 +72,20 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/customers/search", async (req, res) => {
+    try {
+      const searchTerm = req.query.q as string;
+      if (!searchTerm || searchTerm.length < 2) {
+        return res.json([]);
+      }
+      const results = await storage.searchCustomersWithVehicles(searchTerm);
+      res.json(results);
+    } catch (error) {
+      console.error("Customer search error:", error);
+      res.status(500).json({ error: "Failed to search customers" });
+    }
+  });
+
   // ============ VEHICLES ============
   app.get("/api/vehicles/:customerId", async (req, res) => {
     try {

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { MOCK_METRICS, WORKFLOW_STAGES } from "@/lib/constants";
 import { EditRODialog } from "@/components/modals/EditRODialog";
+import NewRepairOrderDialog from "@/components/modals/NewRepairOrderDialog";
 import { useData } from "@/lib/DataContext"; // Use Global Data
 import { 
   ArrowUpRight, 
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const { repairOrders, updateRepairOrder } = useData(); // Consume Context
   const [editOpen, setEditOpen] = useState(false);
   const [selectedRO, setSelectedRO] = useState<any>(null);
+  const [newROOpen, setNewROOpen] = useState(false);
 
   const handleJobClick = (ro: any) => {
     setSelectedRO(ro);
@@ -73,6 +75,10 @@ export default function Dashboard() {
         roData={selectedRO}
         onSave={handleSaveRO}
       />
+      <NewRepairOrderDialog 
+        open={newROOpen}
+        onOpenChange={setNewROOpen}
+      />
       
       <div className="flex flex-col gap-6">
         {/* Top Header */}
@@ -83,7 +89,11 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline">Today</Button>
-            <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
+            <Button 
+              className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
+              onClick={() => setNewROOpen(true)}
+              data-testid="button-new-ro"
+            >
               <Plus className="mr-2 h-4 w-4" /> New RO
             </Button>
           </div>
