@@ -11,7 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Search, 
   User, 
@@ -24,10 +30,49 @@ import {
   Clock,
   Loader2,
   UserPlus,
-  ChevronRight
+  ChevronRight,
+  AlertCircle
 } from "lucide-react";
 import type { Customer, Vehicle } from "@shared/schema";
 import { useLocation } from "wouter";
+import { useData } from "@/lib/DataContext";
+
+const COMMON_MAKES = [
+  "Acura", "Audi", "BMW", "Buick", "Cadillac", "Chevrolet", "Chrysler", 
+  "Dodge", "Ford", "GMC", "Honda", "Hyundai", "Infiniti", "Jeep", "Kia", 
+  "Lexus", "Lincoln", "Mazda", "Mercedes-Benz", "Nissan", "Ram", "Subaru", 
+  "Tesla", "Toyota", "Volkswagen", "Volvo", "Other"
+];
+
+const COMMON_MODELS: Record<string, string[]> = {
+  "Acura": ["MDX", "RDX", "TLX", "ILX", "NSX", "Other"],
+  "Audi": ["A4", "A6", "Q5", "Q7", "Q3", "e-tron", "Other"],
+  "BMW": ["3 Series", "5 Series", "X3", "X5", "X1", "7 Series", "Other"],
+  "Buick": ["Enclave", "Encore", "Envision", "LaCrosse", "Other"],
+  "Cadillac": ["Escalade", "XT5", "XT4", "CT5", "CT4", "Other"],
+  "Chevrolet": ["Silverado", "Equinox", "Tahoe", "Malibu", "Traverse", "Camaro", "Corvette", "Colorado", "Suburban", "Other"],
+  "Chrysler": ["300", "Pacifica", "Voyager", "Other"],
+  "Dodge": ["Ram", "Charger", "Challenger", "Durango", "Grand Caravan", "Other"],
+  "Ford": ["F-150", "Explorer", "Escape", "Mustang", "Edge", "Bronco", "Ranger", "Expedition", "Fusion", "Other"],
+  "GMC": ["Sierra", "Yukon", "Terrain", "Acadia", "Canyon", "Other"],
+  "Honda": ["Civic", "Accord", "CR-V", "Pilot", "Odyssey", "HR-V", "Ridgeline", "Other"],
+  "Hyundai": ["Elantra", "Sonata", "Tucson", "Santa Fe", "Palisade", "Kona", "Other"],
+  "Infiniti": ["Q50", "QX60", "QX80", "Q60", "Other"],
+  "Jeep": ["Wrangler", "Grand Cherokee", "Cherokee", "Compass", "Gladiator", "Renegade", "Other"],
+  "Kia": ["Sorento", "Sportage", "Telluride", "Forte", "K5", "Soul", "Other"],
+  "Lexus": ["RX", "ES", "NX", "GX", "IS", "LX", "Other"],
+  "Lincoln": ["Navigator", "Aviator", "Corsair", "Nautilus", "Other"],
+  "Mazda": ["CX-5", "CX-9", "Mazda3", "Mazda6", "CX-30", "MX-5", "Other"],
+  "Mercedes-Benz": ["C-Class", "E-Class", "GLE", "GLC", "S-Class", "A-Class", "Other"],
+  "Nissan": ["Altima", "Rogue", "Sentra", "Pathfinder", "Murano", "Frontier", "Titan", "Other"],
+  "Ram": ["1500", "2500", "3500", "ProMaster", "Other"],
+  "Subaru": ["Outback", "Forester", "Crosstrek", "Impreza", "Ascent", "WRX", "Other"],
+  "Tesla": ["Model 3", "Model Y", "Model S", "Model X", "Cybertruck", "Other"],
+  "Toyota": ["Camry", "Corolla", "RAV4", "Highlander", "Tacoma", "Tundra", "4Runner", "Prius", "Sienna", "Other"],
+  "Volkswagen": ["Jetta", "Tiguan", "Atlas", "Passat", "Golf", "ID.4", "Other"],
+  "Volvo": ["XC90", "XC60", "XC40", "S60", "V60", "Other"],
+  "Other": ["Other"]
+};
 
 interface CustomerWithVehicles {
   customer: Customer;
@@ -41,6 +86,7 @@ interface NewRepairOrderDialogProps {
 
 export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOrderDialogProps) {
   const [, setLocation] = useLocation();
+  const { refreshData } = useData();
   
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -61,6 +107,8 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
   const [newVehicleYear, setNewVehicleYear] = useState("");
   const [newVehicleMake, setNewVehicleMake] = useState("");
   const [newVehicleModel, setNewVehicleModel] = useState("");
+  const [customMake, setCustomMake] = useState("");
+  const [customModel, setCustomModel] = useState("");
   const [newVehicleVin, setNewVehicleVin] = useState("");
   const [newVehiclePlate, setNewVehiclePlate] = useState("");
   
@@ -73,6 +121,7 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState<"customer" | "vehicle" | "details">("customer");
+  const [error, setError] = useState<string | null>(null);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -90,6 +139,8 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
       setNewVehicleYear("");
       setNewVehicleMake("");
       setNewVehicleModel("");
+      setCustomMake("");
+      setCustomModel("");
       setNewVehicleVin("");
       setNewVehiclePlate("");
       setComplaint("");
@@ -97,6 +148,7 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
       setScheduledTime("");
       setBay("");
       setCurrentStep("customer");
+      setError(null);
     }
   }, [open]);
 
@@ -172,8 +224,12 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
     }
   };
 
+  // Compute effective make/model (use custom values when "Other" is selected)
+  const effectiveMake = newVehicleMake === "Other" ? customMake.trim() : newVehicleMake;
+  const effectiveModel = newVehicleModel === "Other" ? customModel.trim() : newVehicleModel;
+
   const handleCreateNewVehicle = async () => {
-    if (!selectedCustomer || !newVehicleYear || !newVehicleMake || !newVehicleModel) return;
+    if (!selectedCustomer || !newVehicleYear || !effectiveMake || !effectiveModel) return;
     
     try {
       const response = await fetch("/api/vehicles", {
@@ -182,8 +238,8 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
         body: JSON.stringify({
           customerId: selectedCustomer.id,
           year: parseInt(newVehicleYear),
-          make: newVehicleMake.trim(),
-          model: newVehicleModel.trim(),
+          make: effectiveMake,
+          model: effectiveModel,
           vin: newVehicleVin.trim() || null,
           licensePlate: newVehiclePlate.trim() || null,
         }),
@@ -202,9 +258,14 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
   };
 
   const handleSubmit = async () => {
-    if (!selectedCustomer || !selectedVehicle || !complaint.trim()) return;
+    if (!selectedCustomer || !selectedVehicle || !complaint.trim()) {
+      setError("Please complete all required fields");
+      return;
+    }
     
     setIsSubmitting(true);
+    setError(null);
+    
     try {
       let dueDate = null;
       if (scheduledDate) {
@@ -227,12 +288,16 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
       });
       
       if (response.ok) {
-        const newRO = await response.json();
+        await refreshData();
         onOpenChange(false);
         setLocation("/repair-orders");
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setError(errorData.error || "Failed to create repair order");
       }
     } catch (error) {
       console.error("Error creating repair order:", error);
+      setError("An error occurred while creating the repair order");
     } finally {
       setIsSubmitting(false);
     }
@@ -494,36 +559,88 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                     <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1">
                         <Label htmlFor="new-vehicle-year">Year *</Label>
-                        <Input 
-                          id="new-vehicle-year"
-                          placeholder="2024"
-                          type="number"
-                          value={newVehicleYear}
-                          onChange={(e) => setNewVehicleYear(e.target.value)}
-                          data-testid="input-new-vehicle-year"
-                        />
+                        <Select value={newVehicleYear} onValueChange={setNewVehicleYear}>
+                          <SelectTrigger data-testid="select-new-vehicle-year">
+                            <SelectValue placeholder="Year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() + 1 - i).map((year) => (
+                              <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="new-vehicle-make">Make *</Label>
-                        <Input 
-                          id="new-vehicle-make"
-                          placeholder="Toyota"
-                          value={newVehicleMake}
-                          onChange={(e) => setNewVehicleMake(e.target.value)}
-                          data-testid="input-new-vehicle-make"
-                        />
+                        <Select 
+                          value={newVehicleMake} 
+                          onValueChange={(value) => {
+                            setNewVehicleMake(value);
+                            setNewVehicleModel("");
+                            setCustomMake("");
+                            setCustomModel("");
+                          }}
+                        >
+                          <SelectTrigger data-testid="select-new-vehicle-make">
+                            <SelectValue placeholder="Select make" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COMMON_MAKES.map((make) => (
+                              <SelectItem key={make} value={make}>{make}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="new-vehicle-model">Model *</Label>
-                        <Input 
-                          id="new-vehicle-model"
-                          placeholder="Camry"
-                          value={newVehicleModel}
-                          onChange={(e) => setNewVehicleModel(e.target.value)}
-                          data-testid="input-new-vehicle-model"
-                        />
+                        <Select 
+                          value={newVehicleModel} 
+                          onValueChange={(value) => {
+                            setNewVehicleModel(value);
+                            setCustomModel("");
+                          }}
+                          disabled={!newVehicleMake}
+                        >
+                          <SelectTrigger data-testid="select-new-vehicle-model">
+                            <SelectValue placeholder={newVehicleMake ? "Select model" : "Select make first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(COMMON_MODELS[newVehicleMake] || ["Other"]).map((model) => (
+                              <SelectItem key={model} value={model}>{model}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
+                    {/* Custom Make/Model inputs when "Other" is selected */}
+                    {(newVehicleMake === "Other" || newVehicleModel === "Other") && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {newVehicleMake === "Other" && (
+                          <div className="space-y-1">
+                            <Label htmlFor="custom-make">Enter Make *</Label>
+                            <Input 
+                              id="custom-make"
+                              placeholder="e.g., Rivian, Lucid"
+                              value={customMake}
+                              onChange={(e) => setCustomMake(e.target.value)}
+                              data-testid="input-custom-make"
+                            />
+                          </div>
+                        )}
+                        {newVehicleModel === "Other" && (
+                          <div className="space-y-1">
+                            <Label htmlFor="custom-model">Enter Model *</Label>
+                            <Input 
+                              id="custom-model"
+                              placeholder="e.g., R1T, Air"
+                              value={customModel}
+                              onChange={(e) => setCustomModel(e.target.value)}
+                              data-testid="input-custom-model"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label htmlFor="new-vehicle-vin">VIN</Label>
@@ -555,7 +672,7 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                     <Button 
                       size="sm" 
                       onClick={handleCreateNewVehicle}
-                      disabled={!newVehicleYear || !newVehicleMake || !newVehicleModel}
+                      disabled={!newVehicleYear || !effectiveMake || !effectiveModel}
                       data-testid="button-save-new-vehicle"
                     >
                       Save & Continue
@@ -651,6 +768,14 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
             </div>
           )}
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md text-destructive text-sm">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
         <DialogFooter className="shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-new-ro">
