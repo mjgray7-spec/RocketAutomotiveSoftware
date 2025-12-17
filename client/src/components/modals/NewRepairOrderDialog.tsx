@@ -33,9 +33,10 @@ import {
   ChevronRight,
   AlertCircle
 } from "lucide-react";
-import type { Customer, Vehicle } from "@shared/schema";
+import type { Customer, Vehicle, PmService } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useData } from "@/lib/DataContext";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const COMMON_MAKES = [
   "Acura", "Audi", "BMW", "Buick", "Cadillac", "Chevrolet", "Chrysler", 
@@ -114,6 +115,9 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
   
   // RO Details state
   const [complaint, setComplaint] = useState("");
+  const [serviceType, setServiceType] = useState<"repair" | "pm" | "">("");
+  const [selectedPmServices, setSelectedPmServices] = useState<number[]>([]);
+  const [availablePmServices, setAvailablePmServices] = useState<PmService[]>([]);
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   const [bay, setBay] = useState("");
@@ -144,11 +148,23 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
       setNewVehicleVin("");
       setNewVehiclePlate("");
       setComplaint("");
+      setServiceType("");
+      setSelectedPmServices([]);
       setScheduledDate("");
       setScheduledTime("");
       setBay("");
       setCurrentStep("customer");
       setError(null);
+    }
+  }, [open]);
+
+  // Fetch available PM services when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetch("/api/pm-services/enabled")
+        .then(res => res.json())
+        .then(data => setAvailablePmServices(data))
+        .catch(console.error);
     }
   }, [open]);
 
@@ -258,8 +274,13 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
   };
 
   const handleSubmit = async () => {
-    if (!selectedCustomer || !selectedVehicle || !complaint.trim()) {
-      setError("Please complete all required fields");
+    if (!selectedCustomer || !selectedVehicle || !complaint.trim() || !serviceType) {
+      setError("Please complete all required fields including service type");
+      return;
+    }
+    
+    if (serviceType === "pm" && selectedPmServices.length === 0) {
+      setError("Please select at least one PM service");
       return;
     }
     
@@ -288,6 +309,50 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
       });
       
       if (response.ok) {
+        const newRO = await response.json();
+        
+        // Create service line items based on service type
+        try {
+          if (serviceType === "repair") {
+            // Create Diagnostic line item
+            const lineResponse = await fetch("/api/service-items", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                repairOrderId: newRO.id,
+                description: `Diagnostic: ${complaint.trim()}`,
+                type: "labor",
+                status: "pending",
+              }),
+            });
+            if (!lineResponse.ok) {
+              console.error("Failed to create diagnostic service line");
+            }
+          } else if (serviceType === "pm") {
+            // Create PM service line items for each selected service
+            for (const pmServiceId of selectedPmServices) {
+              const pmService = availablePmServices.find(s => s.id === pmServiceId);
+              if (pmService) {
+                const lineResponse = await fetch("/api/service-items", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    repairOrderId: newRO.id,
+                    description: pmService.name,
+                    type: "labor",
+                    status: "pending",
+                  }),
+                });
+                if (!lineResponse.ok) {
+                  console.error(`Failed to create PM service line: ${pmService.name}`);
+                }
+              }
+            }
+          }
+        } catch (lineError) {
+          console.error("Error creating service lines:", lineError);
+        }
+        
         await refreshData();
         onOpenChange(false);
         setLocation("/repair-orders");
@@ -303,7 +368,8 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
     }
   };
 
-  const canSubmit = selectedCustomer && selectedVehicle && complaint.trim();
+  const canSubmit = selectedCustomer && selectedVehicle && complaint.trim() && serviceType && 
+    (serviceType === "repair" || (serviceType === "pm" && selectedPmServices.length > 0));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -563,7 +629,7 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                           <SelectTrigger data-testid="select-new-vehicle-year">
                             <SelectValue placeholder="Year" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
                             {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() + 1 - i).map((year) => (
                               <SelectItem key={year} value={String(year)}>{year}</SelectItem>
                             ))}
@@ -584,7 +650,7 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                           <SelectTrigger data-testid="select-new-vehicle-make">
                             <SelectValue placeholder="Select make" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
                             {COMMON_MAKES.map((make) => (
                               <SelectItem key={make} value={make}>{make}</SelectItem>
                             ))}
@@ -604,7 +670,7 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                           <SelectTrigger data-testid="select-new-vehicle-model">
                             <SelectValue placeholder={newVehicleMake ? "Select model" : "Select make first"} />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
                             {(COMMON_MODELS[newVehicleMake] || ["Other"]).map((model) => (
                               <SelectItem key={model} value={model}>{model}</SelectItem>
                             ))}
@@ -712,12 +778,71 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                 <Textarea 
                   id="complaint"
                   placeholder="Describe the customer's complaint or requested service..."
-                  className="min-h-[100px]"
+                  className="min-h-[80px]"
                   value={complaint}
                   onChange={(e) => setComplaint(e.target.value)}
                   data-testid="input-complaint"
                 />
               </div>
+
+              {/* Service Type Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="service-type">Service Type *</Label>
+                <Select 
+                  value={serviceType} 
+                  onValueChange={(value: "repair" | "pm") => {
+                    setServiceType(value);
+                    setSelectedPmServices([]);
+                  }}
+                >
+                  <SelectTrigger data-testid="select-service-type">
+                    <SelectValue placeholder="Select service type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="repair">Repair</SelectItem>
+                    <SelectItem value="pm">Preventive Maintenance (PM)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* PM Services Multi-Select */}
+              {serviceType === "pm" && (
+                <div className="space-y-2">
+                  <Label>Select PM Services *</Label>
+                  <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-2">
+                    {availablePmServices.map((service) => (
+                      <div 
+                        key={service.id} 
+                        className="flex items-center gap-2"
+                      >
+                        <Checkbox 
+                          id={`pm-service-${service.id}`}
+                          checked={selectedPmServices.includes(service.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPmServices([...selectedPmServices, service.id]);
+                            } else {
+                              setSelectedPmServices(selectedPmServices.filter(id => id !== service.id));
+                            }
+                          }}
+                          data-testid={`checkbox-pm-service-${service.id}`}
+                        />
+                        <label 
+                          htmlFor={`pm-service-${service.id}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          {service.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedPmServices.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedPmServices.length} service(s) selected
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Scheduling */}
               <div className="space-y-2">

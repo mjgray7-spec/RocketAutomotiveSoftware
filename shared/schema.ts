@@ -253,3 +253,19 @@ export const insertInventorySchema = createInsertSchema(inventory).omit({
 });
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type InventoryItem = typeof inventory.$inferSelect;
+
+// PM Services table - admin-managed list of preventive maintenance services
+export const pmServices = pgTable("pm_services", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  enabled: boolean("enabled").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPmServiceSchema = createInsertSchema(pmServices).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertPmService = z.infer<typeof insertPmServiceSchema>;
+export type PmService = typeof pmServices.$inferSelect;

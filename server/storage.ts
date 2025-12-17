@@ -9,6 +9,7 @@ import {
   estimateJobs,
   estimateLineItems,
   inventory,
+  pmServices,
   type User, 
   type InsertUser,
   type Customer,
@@ -29,6 +30,8 @@ import {
   type InsertEstimateLineItem,
   type InventoryItem,
   type InsertInventory,
+  type PmService,
+  type InsertPmService,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, ilike, or, inArray } from "drizzle-orm";
@@ -88,6 +91,12 @@ export interface IStorage {
   getInventoryItem(id: number): Promise<InventoryItem | undefined>;
   createInventoryItem(item: InsertInventory): Promise<InventoryItem>;
   updateInventoryItem(id: number, item: Partial<InsertInventory>): Promise<InventoryItem | undefined>;
+
+  // PM Services
+  getPmServices(): Promise<PmService[]>;
+  getEnabledPmServices(): Promise<PmService[]>;
+  createPmService(service: InsertPmService): Promise<PmService>;
+  updatePmService(id: number, service: Partial<InsertPmService>): Promise<PmService | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -327,6 +336,27 @@ export class DatabaseStorage implements IStorage {
 
   async updateInventoryItem(id: number, item: Partial<InsertInventory>): Promise<InventoryItem | undefined> {
     const [updated] = await db.update(inventory).set(item).where(eq(inventory.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // PM Services
+  async getPmServices(): Promise<PmService[]> {
+    return await db.select().from(pmServices).orderBy(pmServices.sortOrder, pmServices.name);
+  }
+
+  async getEnabledPmServices(): Promise<PmService[]> {
+    return await db.select().from(pmServices)
+      .where(eq(pmServices.enabled, true))
+      .orderBy(pmServices.sortOrder, pmServices.name);
+  }
+
+  async createPmService(service: InsertPmService): Promise<PmService> {
+    const [newService] = await db.insert(pmServices).values(service).returning();
+    return newService;
+  }
+
+  async updatePmService(id: number, service: Partial<InsertPmService>): Promise<PmService | undefined> {
+    const [updated] = await db.update(pmServices).set(service).where(eq(pmServices.id, id)).returning();
     return updated || undefined;
   }
 }

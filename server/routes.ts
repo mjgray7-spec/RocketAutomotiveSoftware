@@ -13,6 +13,7 @@ import {
   insertEstimateJobSchema,
   insertEstimateLineItemSchema,
   insertInventorySchema,
+  insertPmServiceSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(
@@ -350,6 +351,85 @@ export async function registerRoutes(
       res.json(item);
     } catch (error) {
       res.status(400).json({ error: "Failed to update inventory item" });
+    }
+  });
+
+  // ============ PM SERVICES ============
+  app.get("/api/pm-services", async (req, res) => {
+    try {
+      const services = await storage.getPmServices();
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch PM services" });
+    }
+  });
+
+  app.get("/api/pm-services/enabled", async (req, res) => {
+    try {
+      const services = await storage.getEnabledPmServices();
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch enabled PM services" });
+    }
+  });
+
+  app.post("/api/pm-services", async (req, res) => {
+    try {
+      const validated = insertPmServiceSchema.parse(req.body);
+      const service = await storage.createPmService(validated);
+      res.status(201).json(service);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid PM service data" });
+    }
+  });
+
+  app.patch("/api/pm-services/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const service = await storage.updatePmService(id, req.body);
+      if (!service) {
+        return res.status(404).json({ error: "PM service not found" });
+      }
+      res.json(service);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update PM service" });
+    }
+  });
+
+  // Seed default PM services if table is empty
+  app.post("/api/pm-services/seed", async (req, res) => {
+    try {
+      const existing = await storage.getPmServices();
+      if (existing.length > 0) {
+        return res.json({ message: "PM services already seeded", count: existing.length });
+      }
+      
+      const defaultServices = [
+        "Synthetic Oil Change",
+        "Semi-Synthetic Oil Change",
+        "Conventional Oil Change",
+        "Diesel Oil Change",
+        "Tire Rotation",
+        "Coolant Flush",
+        "Brake Fluid Flush",
+        "Transmission Flush",
+        "Transmission Filter",
+        "Air Filter",
+        "Cabin Air Filter",
+        "Differential D/F",
+        "Power Steering Flush",
+        "Fuel Filter",
+        "DEF Filter",
+        "Spark Plugs",
+      ];
+      
+      for (let i = 0; i < defaultServices.length; i++) {
+        await storage.createPmService({ name: defaultServices[i], enabled: true, sortOrder: i });
+      }
+      
+      res.json({ message: "PM services seeded", count: defaultServices.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to seed PM services" });
     }
   });
 
