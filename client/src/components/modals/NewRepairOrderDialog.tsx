@@ -115,12 +115,16 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
   
   // RO Details state
   const [complaint, setComplaint] = useState("");
-  const [serviceType, setServiceType] = useState<"repair" | "pm" | "">("");
+  const [includeRepair, setIncludeRepair] = useState(false);
+  const [includePm, setIncludePm] = useState(false);
   const [selectedPmServices, setSelectedPmServices] = useState<number[]>([]);
   const [availablePmServices, setAvailablePmServices] = useState<PmService[]>([]);
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   const [bay, setBay] = useState("");
+  
+  // Labor rate constant
+  const LABOR_RATE = 145;
   
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,7 +152,8 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
       setNewVehicleVin("");
       setNewVehiclePlate("");
       setComplaint("");
-      setServiceType("");
+      setIncludeRepair(false);
+      setIncludePm(false);
       setSelectedPmServices([]);
       setScheduledDate("");
       setScheduledTime("");
@@ -274,12 +279,17 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
   };
 
   const handleSubmit = async () => {
-    if (!selectedCustomer || !selectedVehicle || !complaint.trim() || !serviceType) {
-      setError("Please complete all required fields including service type");
+    if (!selectedCustomer || !selectedVehicle || !complaint.trim()) {
+      setError("Please complete all required fields");
       return;
     }
     
-    if (serviceType === "pm" && selectedPmServices.length === 0) {
+    if (!includeRepair && !includePm) {
+      setError("Please select at least one service type (Repair or PM)");
+      return;
+    }
+    
+    if (includePm && selectedPmServices.length === 0) {
       setError("Please select at least one PM service");
       return;
     }
@@ -311,10 +321,10 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
       if (response.ok) {
         const newRO = await response.json();
         
-        // Create service line items based on service type
+        // Create service line items based on selected toggles
         try {
-          if (serviceType === "repair") {
-            // Create Diagnostic line item
+          // Create Diagnostic line item if Repair is toggled
+          if (includeRepair) {
             const lineResponse = await fetch("/api/service-items", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -323,13 +333,16 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                 description: `Diagnostic: ${complaint.trim()}`,
                 type: "labor",
                 status: "pending",
+                hours: "1.00",
               }),
             });
             if (!lineResponse.ok) {
               console.error("Failed to create diagnostic service line");
             }
-          } else if (serviceType === "pm") {
-            // Create PM service line items for each selected service
+          }
+          
+          // Create PM service line items if PM is toggled
+          if (includePm) {
             for (const pmServiceId of selectedPmServices) {
               const pmService = availablePmServices.find(s => s.id === pmServiceId);
               if (pmService) {
@@ -368,8 +381,11 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
     }
   };
 
-  const canSubmit = selectedCustomer && selectedVehicle && complaint.trim() && serviceType && 
-    (serviceType === "repair" || (serviceType === "pm" && selectedPmServices.length > 0));
+  // Validation: at least one service type, and if PM is selected, at least one PM service must be chosen
+  const hasValidServiceSelection = (includeRepair || includePm) && 
+    (!includePm || selectedPmServices.length > 0);
+  
+  const canSubmit = selectedCustomer && selectedVehicle && complaint.trim() && hasValidServiceSelection;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -785,64 +801,94 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
                 />
               </div>
 
-              {/* Service Type Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="service-type">Service Type *</Label>
-                <Select 
-                  value={serviceType} 
-                  onValueChange={(value: "repair" | "pm") => {
-                    setServiceType(value);
-                    setSelectedPmServices([]);
-                  }}
-                >
-                  <SelectTrigger data-testid="select-service-type">
-                    <SelectValue placeholder="Select service type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="repair">Repair</SelectItem>
-                    <SelectItem value="pm">Preventive Maintenance (PM)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* PM Services Multi-Select */}
-              {serviceType === "pm" && (
-                <div className="space-y-2">
-                  <Label>Select PM Services *</Label>
-                  <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-2">
-                    {availablePmServices.map((service) => (
-                      <div 
-                        key={service.id} 
-                        className="flex items-center gap-2"
-                      >
-                        <Checkbox 
-                          id={`pm-service-${service.id}`}
-                          checked={selectedPmServices.includes(service.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedPmServices([...selectedPmServices, service.id]);
-                            } else {
-                              setSelectedPmServices(selectedPmServices.filter(id => id !== service.id));
-                            }
-                          }}
-                          data-testid={`checkbox-pm-service-${service.id}`}
-                        />
-                        <label 
-                          htmlFor={`pm-service-${service.id}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          {service.name}
-                        </label>
-                      </div>
-                    ))}
+              {/* Service Type Toggles */}
+              <div className="space-y-3">
+                <Label>Service Type * (select one or both)</Label>
+                
+                {/* Repair Toggle */}
+                <div className="border rounded-md p-3">
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      id="include-repair"
+                      checked={includeRepair}
+                      onCheckedChange={(checked) => setIncludeRepair(!!checked)}
+                      data-testid="checkbox-include-repair"
+                    />
+                    <label 
+                      htmlFor="include-repair"
+                      className="flex-1 cursor-pointer"
+                    >
+                      <div className="font-medium">Repair</div>
+                      <p className="text-xs text-muted-foreground">
+                        Creates a diagnostic service line (1 hour @ ${LABOR_RATE}/hr)
+                      </p>
+                    </label>
                   </div>
-                  {selectedPmServices.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {selectedPmServices.length} service(s) selected
-                    </p>
+                </div>
+                
+                {/* PM Toggle */}
+                <div className={`border rounded-md p-3 ${includePm ? 'border-primary' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      id="include-pm"
+                      checked={includePm}
+                      onCheckedChange={(checked) => {
+                        setIncludePm(!!checked);
+                        if (!checked) setSelectedPmServices([]);
+                      }}
+                      data-testid="checkbox-include-pm"
+                    />
+                    <label 
+                      htmlFor="include-pm"
+                      className="flex-1 cursor-pointer"
+                    >
+                      <div className="font-medium">Preventive Maintenance (PM)</div>
+                      <p className="text-xs text-muted-foreground">
+                        Select from available PM services
+                      </p>
+                    </label>
+                  </div>
+                  
+                  {/* PM Services Multi-Select (shown when PM is toggled on) */}
+                  {includePm && (
+                    <div className="mt-3 border-t pt-3 space-y-2">
+                      <Label className="text-sm">Select PM Services *</Label>
+                      <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-2 bg-background">
+                        {availablePmServices.map((service) => (
+                          <div 
+                            key={service.id} 
+                            className="flex items-center gap-2"
+                          >
+                            <Checkbox 
+                              id={`pm-service-${service.id}`}
+                              checked={selectedPmServices.includes(service.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedPmServices([...selectedPmServices, service.id]);
+                                } else {
+                                  setSelectedPmServices(selectedPmServices.filter(id => id !== service.id));
+                                }
+                              }}
+                              data-testid={`checkbox-pm-service-${service.id}`}
+                            />
+                            <label 
+                              htmlFor={`pm-service-${service.id}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {service.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedPmServices.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {selectedPmServices.length} service(s) selected
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
 
               {/* Scheduling */}
               <div className="space-y-2">
