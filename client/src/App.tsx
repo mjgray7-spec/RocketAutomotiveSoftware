@@ -19,12 +19,14 @@ import TechnicianDashboard from "@/pages/technician/index";
 import DVI from "@/pages/technician/dvi";
 import JobExecution from "@/pages/technician/job";
 import Settings from "@/pages/settings/index";
+import RepairOrderEstimate from "@/pages/repair-orders/estimate";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/repair-orders" component={RepairOrders} />
+      <Route path="/repair-orders/:id/estimate" component={RepairOrderEstimate} />
       <Route path="/schedule" component={Schedule} />
       <Route path="/customers" component={Customers} />
       <Route path="/ai-agent" component={AIAgent} />

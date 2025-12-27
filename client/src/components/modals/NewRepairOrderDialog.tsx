@@ -366,9 +366,95 @@ export default function NewRepairOrderDialog({ open, onOpenChange }: NewRepairOr
           console.error("Error creating service lines:", lineError);
         }
         
+        // Create estimate with jobs and line items for immediate quoting
+        try {
+          // Create the estimate
+          const estimateRes = await fetch("/api/estimates", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              repairOrderId: newRO.id,
+              status: "draft",
+            }),
+          });
+          
+          if (estimateRes.ok) {
+            const estimate = await estimateRes.json();
+            let sortOrder = 0;
+            
+            // Create diagnostic job if Repair is toggled
+            if (includeRepair) {
+              const jobRes = await fetch("/api/estimate-jobs", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  estimateId: estimate.id,
+                  title: `Diagnostic: ${complaint.trim()}`,
+                  sortOrder: sortOrder++,
+                }),
+              });
+              
+              if (jobRes.ok) {
+                const job = await jobRes.json();
+                // Create labor line item with 1 hour at labor rate
+                await fetch("/api/estimate-line-items", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    jobId: job.id,
+                    type: "Labor",
+                    description: `Diagnostic: ${complaint.trim()}`,
+                    quantity: "1.00",
+                    rate: String(LABOR_RATE),
+                    total: String(LABOR_RATE),
+                  }),
+                });
+              }
+            }
+            
+            // Create PM service jobs if PM is toggled
+            if (includePm) {
+              for (const pmServiceId of selectedPmServices) {
+                const pmService = availablePmServices.find(s => s.id === pmServiceId);
+                if (pmService) {
+                  const jobRes = await fetch("/api/estimate-jobs", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      estimateId: estimate.id,
+                      title: pmService.name,
+                      sortOrder: sortOrder++,
+                    }),
+                  });
+                  
+                  if (jobRes.ok) {
+                    const job = await jobRes.json();
+                    // Create placeholder labor line item for PM service
+                    await fetch("/api/estimate-line-items", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        jobId: job.id,
+                        type: "Labor",
+                        description: pmService.name,
+                        quantity: "1.00",
+                        rate: "0.00",
+                        total: "0.00",
+                      }),
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch (estimateError) {
+          console.error("Error creating estimate:", estimateError);
+        }
+        
         await refreshData();
         onOpenChange(false);
-        setLocation("/repair-orders");
+        // Navigate directly to the estimate page for the new RO
+        setLocation(`/repair-orders/${newRO.id}/estimate`);
       } else {
         const errorData = await response.json().catch(() => ({}));
         setError(errorData.error || "Failed to create repair order");
