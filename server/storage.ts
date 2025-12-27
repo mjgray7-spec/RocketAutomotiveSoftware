@@ -84,6 +84,7 @@ export interface IStorage {
   getLineItemsByJob(jobId: number): Promise<EstimateLineItem[]>;
   createEstimateLineItem(item: InsertEstimateLineItem): Promise<EstimateLineItem>;
   deleteEstimateLineItem(id: number): Promise<void>;
+  updateEstimateLineItem(id: number, item: Partial<InsertEstimateLineItem>): Promise<EstimateLineItem | undefined>;
 
   // Inventory
   getInventory(): Promise<InventoryItem[]>;
@@ -297,6 +298,11 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEstimateLineItem(id: number): Promise<void> {
     await db.delete(estimateLineItems).where(eq(estimateLineItems.id, id));
+  }
+
+  async updateEstimateLineItem(id: number, item: Partial<InsertEstimateLineItem>): Promise<EstimateLineItem | undefined> {
+    const [updated] = await db.update(estimateLineItems).set(item).where(eq(estimateLineItems.id, id)).returning();
+    return updated;
   }
 
   // Inventory

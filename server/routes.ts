@@ -298,6 +298,20 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/estimate-line-items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { description, quantity, rate, total } = req.body;
+      const updated = await storage.updateEstimateLineItem(id, { description, quantity, rate, total });
+      if (!updated) {
+        return res.status(404).json({ error: "Line item not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update line item" });
+    }
+  });
+
   // ============ INVENTORY ============
   app.get("/api/inventory", async (req, res) => {
     try {

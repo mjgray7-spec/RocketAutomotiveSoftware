@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { 
   FileText, 
   Plus, 
@@ -14,10 +15,13 @@ import {
   ChevronRight,
   Car,
   User,
-  Loader2
+  Loader2,
+  Check,
+  X,
+  Pencil
 } from "lucide-react";
 import { useData } from "@/lib/DataContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddJobDialog } from "@/components/modals/AddJobDialog";
@@ -64,6 +68,9 @@ export default function RepairOrderEstimate() {
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [editingCell, setEditingCell] = useState<{ itemId: number; field: 'description' | 'quantity' | 'rate' } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const repairOrderId = parseInt(id || "0");
   const repairOrder = repairOrders.find(ro => Number(ro.id) === repairOrderId);
@@ -151,6 +158,88 @@ export default function RepairOrderEstimate() {
       setJobs(prev => prev.filter(job => job.id !== jobId));
     } catch (error) {
       console.error("Error deleting job:", error);
+    }
+  };
+
+  const startEditing = (item: LineItem, field: 'description' | 'quantity' | 'rate') => {
+    let value = "";
+    if (field === 'description') value = item.description;
+    else if (field === 'quantity') value = String(item.quantity);
+    else if (field === 'rate') value = item.rate.replace("$", "");
+    
+    setEditValue(value);
+    setEditingCell({ itemId: item.id, field });
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const cancelEditing = () => {
+    setEditingCell(null);
+    setEditValue("");
+  };
+
+  const saveEdit = async (jobId: number, item: LineItem) => {
+    if (!editingCell) return;
+    
+    try {
+      let newDescription = item.description;
+      let newQuantity = item.quantity;
+      let newRate = parseFloat(item.rate.replace("$", ""));
+      
+      if (editingCell.field === 'description') {
+        newDescription = editValue;
+      } else if (editingCell.field === 'quantity') {
+        newQuantity = parseFloat(editValue) || item.quantity;
+      } else if (editingCell.field === 'rate') {
+        newRate = parseFloat(editValue) || parseFloat(item.rate.replace("$", ""));
+      }
+      
+      const newTotal = newQuantity * newRate;
+      
+      const response = await fetch(`/api/estimate-line-items/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: newDescription,
+          quantity: String(newQuantity),
+          rate: String(newRate),
+          total: String(newTotal),
+        }),
+      });
+      
+      if (response.ok) {
+        setJobs(prev => prev.map(job => {
+          if (job.id === jobId) {
+            return {
+              ...job,
+              lineItems: job.lineItems.map(li => {
+                if (li.id === item.id) {
+                  return {
+                    ...li,
+                    description: newDescription,
+                    quantity: newQuantity,
+                    rate: `$${newRate.toFixed(2)}`,
+                    total: `$${newTotal.toFixed(2)}`,
+                  };
+                }
+                return li;
+              })
+            };
+          }
+          return job;
+        }));
+      }
+    } catch (error) {
+      console.error("Error updating line item:", error);
+    } finally {
+      cancelEditing();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, jobId: number, item: LineItem) => {
+    if (e.key === 'Enter') {
+      saveEdit(jobId, item);
+    } else if (e.key === 'Escape') {
+      cancelEditing();
     }
   };
 
@@ -391,7 +480,7 @@ export default function RepairOrderEstimate() {
                             </thead>
                             <tbody>
                               {job.lineItems.map((item) => (
-                                <tr key={item.id} className="border-b border-border/50 hover:bg-muted/30">
+                                <tr key={item.id} className="border-b border-border/50 hover:bg-muted/30 group">
                                   <td className="py-2">
                                     <Badge variant="outline" className={
                                       item.type === "Labor" ? "bg-blue-500/10 text-blue-600" :
@@ -401,9 +490,75 @@ export default function RepairOrderEstimate() {
                                       {item.type}
                                     </Badge>
                                   </td>
-                                  <td className="py-2">{item.description}</td>
-                                  <td className="py-2 text-right font-mono">{item.quantity}</td>
-                                  <td className="py-2 text-right font-mono">{item.rate}</td>
+                                  <td className="py-2">
+                                    {editingCell?.itemId === item.id && editingCell?.field === 'description' ? (
+                                      <div className="flex items-center gap-1">
+                                        <Input
+                                          ref={inputRef}
+                                          value={editValue}
+                                          onChange={(e) => setEditValue(e.target.value)}
+                                          onKeyDown={(e) => handleKeyDown(e, job.id, item)}
+                                          onBlur={() => saveEdit(job.id, item)}
+                                          className="h-7 text-sm"
+                                          data-testid={`input-description-${item.id}`}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span 
+                                        className="cursor-pointer hover:bg-muted px-1 py-0.5 rounded"
+                                        onClick={() => startEditing(item, 'description')}
+                                        data-testid={`text-description-${item.id}`}
+                                      >
+                                        {item.description}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 text-right font-mono">
+                                    {editingCell?.itemId === item.id && editingCell?.field === 'quantity' ? (
+                                      <Input
+                                        ref={inputRef}
+                                        type="number"
+                                        value={editValue}
+                                        onChange={(e) => setEditValue(e.target.value)}
+                                        onKeyDown={(e) => handleKeyDown(e, job.id, item)}
+                                        onBlur={() => saveEdit(job.id, item)}
+                                        className="h-7 text-sm w-20 text-right ml-auto"
+                                        step="0.01"
+                                        data-testid={`input-qty-${item.id}`}
+                                      />
+                                    ) : (
+                                      <span 
+                                        className="cursor-pointer hover:bg-muted px-1 py-0.5 rounded"
+                                        onClick={() => startEditing(item, 'quantity')}
+                                        data-testid={`text-qty-${item.id}`}
+                                      >
+                                        {item.quantity}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 text-right font-mono">
+                                    {editingCell?.itemId === item.id && editingCell?.field === 'rate' ? (
+                                      <Input
+                                        ref={inputRef}
+                                        type="number"
+                                        value={editValue}
+                                        onChange={(e) => setEditValue(e.target.value)}
+                                        onKeyDown={(e) => handleKeyDown(e, job.id, item)}
+                                        onBlur={() => saveEdit(job.id, item)}
+                                        className="h-7 text-sm w-24 text-right ml-auto"
+                                        step="0.01"
+                                        data-testid={`input-rate-${item.id}`}
+                                      />
+                                    ) : (
+                                      <span 
+                                        className="cursor-pointer hover:bg-muted px-1 py-0.5 rounded"
+                                        onClick={() => startEditing(item, 'rate')}
+                                        data-testid={`text-rate-${item.id}`}
+                                      >
+                                        {item.rate}
+                                      </span>
+                                    )}
+                                  </td>
                                   <td className="py-2 text-right font-mono font-medium">{item.total}</td>
                                   <td className="py-2">
                                     <Button 
